@@ -1,0 +1,54 @@
+plugins { id 'net.neoforged.moddev' version '2.0.147' }
+base { archivesName = 'anthub' }
+neoForge {
+    version = rootProject.property('neoVersion')
+    runs { client { client() }; server { server(); programArgument '--nogui' } }
+    if (!project.hasProperty('anthubPackaged')) { mods { anthub { sourceSet sourceSets.main; sourceSet project(':core').sourceSets.main } } }
+}
+dependencies { implementation project(':core') }
+tasks.named('processResources') {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
+    dependsOn ':helper:standaloneJar'
+    from(project(':helper').tasks.named('standaloneJar')) { into 'anthub'; rename { 'helper.jar' } }
+}
+tasks.named('jar') { from project(':core').sourceSets.main.output; archiveClassifier = 'game-module'; destinationDirectory = layout.buildDirectory.dir('internal') }
+
+tasks.named('processResources') {
+    from(rootProject.file('anthub/icon_256x256.png')) { into ''; rename { 'icon.png' } }
+    [24, 32, 64, 256].each { size ->
+        from(rootProject.file("anthub/icon_${size}x${size}.png")) {
+            into 'assets/anthub/textures/gui'
+            rename { "icon_${size}.png" }
+        }
+    }
+}
+
+if (project.hasProperty('anthubPackaged')) {
+    neoForge.runs.configureEach { gameDirectory = file('run-packaged-' + name) }
+    tasks.register('installTestBundle', Copy) {
+        dependsOn ':bootstrap:jar'
+        from(project(':bootstrap').tasks.named('jar'))
+        into file('run-packaged-server/mods')
+    }
+    tasks.matching { it.name == 'prepareServerRun' }.configureEach { dependsOn 'installTestBundle' }
+}
+
+// Keep third-party packages in their own modules. NeoForge selects a shared
+// library version when another mod bundles the same dependency.
+dependencies {
+    jarJar(implementation('org.postgresql:postgresql') {
+        version { strictly '[42.7.13,43.0)'; prefer '42.7.13' }
+        transitive = false
+    })
+    jarJar(implementation('com.zaxxer:HikariCP') {
+        version { strictly '[6.3.3,7.0)'; prefer '6.3.3' }
+        transitive = false
+    })
+    ['bcprov-jdk18on', 'bcutil-jdk18on', 'bcpkix-jdk18on'].each { artifact ->
+        jarJar(implementation("org.bouncycastle:${artifact}") {
+            version { strictly '[1.85,2.0)'; prefer '1.85' }
+            transitive = false
+        })
+    }
+}

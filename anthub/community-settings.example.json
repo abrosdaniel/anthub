@@ -1,0 +1,21 @@
+{
+  "groupsTitle": "Объединения",
+  "maxMemberships": 3,
+  "categories": [],
+  "groupTypes": [
+    "Город",
+    "Команда",
+    "Гильдия",
+    "Поселение"
+  ],
+  "sections": [
+    "home",
+    "players",
+    "board",
+    "groups",
+    "events",
+    "polls",
+    "ideas",
+    "notifications"
+  ]
+}

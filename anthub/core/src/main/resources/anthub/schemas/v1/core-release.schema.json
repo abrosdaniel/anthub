@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/abrosdaniel/anthub/HEAD/anthub/core/src/main/resources/anthub/schemas/v1/core-release.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "minecraft": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "neoForge": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Minimum NeoForge version within the same major.minor release line."
+          },
+          "java": {
+            "type": "integer",
+            "minimum": 21
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://",
+            "maxLength": 2048
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "helperProtocolVersion": {
+            "const": 1
+          }
+        },
+        "required": [
+          "minecraft",
+          "neoForge",
+          "java",
+          "url",
+          "sha256",
+          "size",
+          "helperProtocolVersion"
+        ]
+      },
+      "maxItems": 100,
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "version",
+    "artifacts"
+  ]
+}

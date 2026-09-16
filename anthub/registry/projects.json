@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "projects": [
+    {
+      "id": "mc-ruslaanchik",
+      "repository": "https://github.com/abrosdaniel/mc-ruslaanchik"
+    }
+  ]
+}

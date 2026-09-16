@@ -1,0 +1,64 @@
+repositories { maven { url = 'https://libraries.minecraft.net' }; maven { url = 'https://maven.neoforged.net/releases' } }
+dependencies { compileOnly 'net.neoforged.fancymodloader:loader:4.0.44' }
+tasks.named('jar') {
+    dependsOn ':mod:jar'
+    archiveBaseName = 'anthub'
+    archiveClassifier = 'mc1.21.1-neoforge'
+    destinationDirectory = rootProject.layout.projectDirectory.dir('anthub/mod/build/libs')
+    from(project(':mod').tasks.named('jar')) { into 'anthub'; rename { 'game.jar' } }
+    // Expose the same metadata to launchers that inspect only the outer JAR.
+    from(project(':mod').layout.buildDirectory.dir('resources/main')) {
+        include 'META-INF/neoforge.mods.toml', 'icon.png', 'anthub.mixins.json'
+    }
+    from(rootProject.file('LICENSE'))
+    manifest { attributes 'Automatic-Module-Name': 'dev.abros.anthub.bootstrap', 'Implementation-Title': 'AntHub', 'Implementation-Version': project.version, 'Implementation-Vendor': 'Daniel Abros' }
+}
+
+// Catch packaging regressions before publishing a bundle that launchers cannot identify.
+tasks.register('verifyBundle') {
+    dependsOn tasks.named('jar')
+    doLast {
+        def bundle = tasks.named('jar').get().archiveFile.get().asFile
+        assert bundle.name == "anthub-${project.version}-mc1.21.1-neoforge.jar"
+        new java.util.zip.ZipFile(bundle).withCloseable { outer ->
+            def metadata = outer.getInputStream(outer.getEntry('META-INF/neoforge.mods.toml')).getText('UTF-8')
+            assert metadata.contains('displayName="AntHub"')
+            assert metadata.contains('version="' + project.version + '"')
+            assert metadata.contains('logoFile="icon.png"')
+            assert outer.getInputStream(outer.getEntry('icon.png')).bytes == rootProject.file('anthub/icon_256x256.png').bytes
+            def innerEntries = [:]
+            new java.util.zip.ZipInputStream(outer.getInputStream(outer.getEntry('anthub/game.jar'))).withCloseable { inner ->
+                for (def entry = inner.nextEntry; entry != null; entry = inner.nextEntry) {
+                    if (!entry.directory) innerEntries[entry.name] = inner.readAllBytes()
+                }
+            }
+            assert !innerEntries.keySet().any { it.startsWith('org/sqlite/') || it.startsWith('org/bouncycastle/') }
+            assert innerEntries.containsKey('dev/abros/anthub/core/auth/AuthTls.class')
+            assert innerEntries.containsKey('anthub.mixins.json')
+            assert innerEntries.containsKey('dev/abros/anthub/mixin/LoginIdentityMixin.class')
+            assert new String(innerEntries['META-INF/accesstransformer.cfg'], 'UTF-8').contains(
+                'public net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl serverData')
+            def metadataJson = new groovy.json.JsonSlurper().parse(innerEntries['META-INF/jarjar/metadata.json'])
+            def libraries = [:]
+            metadataJson.jars.each { dependency ->
+                assert innerEntries.containsKey(dependency.path)
+                def entries = [] as Set
+                new java.util.zip.ZipInputStream(new ByteArrayInputStream(innerEntries[dependency.path])).withCloseable { library ->
+                    for (def entry = library.nextEntry; entry != null; entry = library.nextEntry) entries.add(entry.name)
+                }
+                libraries[dependency.identifier.artifact] = entries
+            }
+            assert libraries.keySet() == ['postgresql', 'HikariCP', 'bcprov-jdk18on', 'bcutil-jdk18on', 'bcpkix-jdk18on'] as Set
+            assert libraries['postgresql'].contains('org/postgresql/Driver.class')
+            assert libraries['HikariCP'].contains('com/zaxxer/hikari/HikariDataSource.class')
+            assert !innerEntries.keySet().any { it.contains('sqlite') }
+
+            assert libraries['bcprov-jdk18on'].contains('org/bouncycastle/crypto/generators/Argon2BytesGenerator.class')
+            assert new String(innerEntries['META-INF/neoforge.mods.toml'], 'UTF-8') == metadata
+            [24, 32, 64, 256].each { size ->
+                assert innerEntries["assets/anthub/textures/gui/icon_${size}.png".toString()] == rootProject.file("anthub/icon_${size}x${size}.png").bytes
+            }
+        }
+    }
+}
+tasks.named('check') { dependsOn 'verifyBundle' }

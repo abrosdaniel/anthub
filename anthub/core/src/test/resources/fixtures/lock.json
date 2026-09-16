@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "example-project",
+    "name": "Example Project",
+    "description": "AntHub example project",
+    "authors": [
+      "Project team"
+    ],
+    "repository": "https://github.com/example/project"
+  },
+  "minecraft": {
+    "version": "1.21.1",
+    "loader": "neoforge",
+    "loaderVersion": "21.1.250"
+  },
+  "anthub": {
+    "minVersion": "1.0.0-alpha.1"
+  },
+  "policies": {
+    "customFiles": "warn"
+  },
+  "servers": [
+    {
+      "id": "survival",
+      "name": "Survival",
+      "address": "play.example.org:25565"
+    }
+  ],
+  "integrations": {
+    "luckperms": false
+  },
+  "theme": {
+    "accent": "#D6A84B"
+  },
+  "release": {
+    "version": "1.0.0",
+    "channel": "stable",
+    "sequence": 1,
+    "createdAt": "2026-09-15T08:30:07.213447+00:00",
+    "sourceCommit": "0000000000000000000000000000000000000000",
+    "updatePolicy": "recommended"
+  },
+  "components": [
+    {
+      "id": "example-config",
+      "name": "Example configuration",
+      "description": "A safe sample configuration file",
+      "kind": "required",
+      "category": "other",
+      "dependencies": [],
+      "conflicts": []
+    }
+  ],
+  "files": [
+    {
+      "path": "config/example-project.toml",
+      "version": "1.0.0",
+      "policy": "preserve",
+      "componentId": "example-config",
+      "sha256": "915d5e84ec62383edc7eaf2c5f8b9884c62eb0fc6f7dbf66d3854c7d65a8f0c7",
+      "size": 15,
+      "urls": [
+        "https://github.com/example/project/releases/download/pack-v1.0.0/915d5e84ec62383edc7eaf2c5f8b9884c62eb0fc6f7dbf66d3854c7d65a8f0c7"
+      ]
+    }
+  ],
+  "content": [
+    {
+      "id": "content/changelog.md",
+      "type": "changelog",
+      "url": "https://github.com/example/project/releases/download/pack-v1.0.0/66f689d9970a027947acede80b17596677c480a438dc246c0c70607a3b34aa13",
+      "sha256": "66f689d9970a027947acede80b17596677c480a438dc246c0c70607a3b34aa13",
+      "size": 26
+    },
+    {
+      "id": "content/news/welcome.md",
+      "type": "news",
+      "url": "https://github.com/example/project/releases/download/pack-v1.0.0/7c35929928446de1628040907d0d5fca14c5ef24348e2b386bbfd111cc004596",
+      "sha256": "7c35929928446de1628040907d0d5fca14c5ef24348e2b386bbfd111cc004596",
+      "size": 37
+    },
+    {
+      "id": "content/rules.md",
+      "type": "rules",
+      "url": "https://github.com/example/project/releases/download/pack-v1.0.0/783839e43bb41855d02e869e91b453881e466f8627590284b6a2dae716e35a19",
+      "sha256": "783839e43bb41855d02e869e91b453881e466f8627590284b6a2dae716e35a19",
+      "size": 32
+    }
+  ]
+}

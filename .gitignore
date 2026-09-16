@@ -1,0 +1,22 @@
+.gradle/
+**/build/
+**/run/
+**/runs/
+.idea/
+*.iml
+.DS_Store
+*.private.pem
+.venv/
+__pycache__/
+
+**/run-packaged-*/
+
+/.local/
+
+# Local server database credentials
+**/anthub-db.password
+**/anthub-database.properties
+anthub/deploy/.env
+
+# Local release output
+/dist/

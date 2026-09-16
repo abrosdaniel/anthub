@@ -1,0 +1,12 @@
+dependencies { implementation project(':core') }
+tasks.register('standaloneJar', Jar) {
+    archiveClassifier = 'standalone'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes 'Main-Class': 'dev.abros.anthub.helper.Main' }
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from { configurations.runtimeClasspath.findAll { !it.name.startsWith('postgresql-') && !it.name.startsWith('HikariCP-') && !it.name.startsWith('checker-qual-') && !it.name.startsWith('bcprov-') && !it.name.startsWith('bcpkix-') && !it.name.startsWith('bcutil-') }.collect { it.isDirectory() ? it : zipTree(it) } }
+    exclude 'dev/abros/anthub/core/auth/**', 'dev/abros/anthub/core/PgDatabase*', 'dev/abros/anthub/core/DatabaseSettings*', 'dev/abros/anthub/core/CommunityStore*', 'dev/abros/anthub/core/CommunityReports*', 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'module-info.class', 'META-INF/versions/**/module-info.class'
+}
+
+tasks.named('test') { dependsOn tasks.named('standaloneJar'); systemProperty 'anthub.helperJar', tasks.named('standaloneJar').get().archiveFile.get().asFile.absolutePath }

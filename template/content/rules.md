@@ -1,0 +1,3 @@
+# Rules
+
+Respect other players.

@@ -1,0 +1,26 @@
+{
+  "name": "Example Server",
+  "version": "1.0.0",
+  "server": {
+    "address": "play.example.org:25565"
+  },
+  "minecraft": {
+    "version": "1.21.1",
+    "loaderVersion": "21.1.250"
+  },
+  "components": [
+    {
+      "id": "example-config",
+      "name": "Пример конфигурации",
+      "files": [
+        {
+          "path": "config/example-project.toml",
+          "repositoryPath": "files/example.toml",
+          "policy": "preserve"
+        }
+      ],
+      "description": "Учебный файл: замените его конфигурацией своей сборки.",
+      "kind": "required"
+    }
+  ]
+}
