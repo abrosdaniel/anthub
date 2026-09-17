@@ -20,7 +20,7 @@ final class ProjectColumn extends AbstractWidget {
     g.drawString(font,font.plainSubstrByWidth(data.version==null?server:data.version.getString(),width-26),getX()+5,y+59,0x999999);
    }
    int half=(width-18)/2;
-   String[] labels={"connect","refresh","settings","remove"};java.util.List<Consumer<String>> actions=java.util.List.of(join,refresh,settings,remove);
+   String[] labels={"connect","refresh","pack","remove"};java.util.List<Consumer<String>> actions=java.util.List.of(join,refresh,settings,remove);
    for(int i=0;i<4;i++){var action=actions.get(i);var button=Button.builder(Client.tr(labels[i]),b->action.accept(server)).bounds(getX()+4+(i%2)*(half+4),y+76+(i/2)*24,half,20).build();button.active=this.active;button.setFocused(isFocused() && keyboardIndex == servers.indexOf(server)*4+i);buttons.add(button);button.render(g,mx,my,delta);}
    if(Client.hub.active()!=null&&Client.hub.active().repository().equals(server))g.drawString(font,"●",getX()+width-15,y+5,0xFF77CC77);
 
@@ -59,7 +59,7 @@ final class ProjectColumn extends AbstractWidget {
  }
  @Override protected void updateWidgetNarration(NarrationElementOutput output){
   if(servers.isEmpty()){defaultButtonNarrationText(output);return;}
-  int index=Math.max(0,Math.min(keyboardIndex,servers.size()*4-1));String[] labels={"connect","refresh","settings","remove"};
+  int index=Math.max(0,Math.min(keyboardIndex,servers.size()*4-1));String[] labels={"connect","refresh","pack","remove"};
   output.add(net.minecraft.client.gui.narration.NarratedElementType.TITLE,Component.literal(Client.hub.projectLabel(servers.get(index/4))+": ").append(Client.tr(labels[index%4])));
  }
 }

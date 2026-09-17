@@ -36,6 +36,8 @@ final class ServerExtras {
         String arguments=suffix,actor=p.getGameProfile().getName();var connection=p.connection;var server=p.server;
         var node=server.getCommands().getDispatcher().getRoot().getChild(action);if(node==null||!node.canUse(p.createCommandSourceStack()))throw new IllegalArgumentException("Command unavailable or permission denied");
         ServerFeatures.storage(()->{try{
+            var receipt=database.receipt(p.getUUID().toString(),j,()->{var claimed=new JsonObject();claimed.addProperty("accepted",true);return claimed;});
+            if(receipt.has("replayed")){server.execute(()->p.sendSystemMessage(Component.literal("Этот запрос уже принят. Проверьте результат и журнал; повторно он не выполнен.")));return;}
             String name=onlineName==null?database.personName(targetId):onlineName;if(!name.matches("[A-Za-z0-9_]{1,16}"))throw new IllegalArgumentException("Unsupported player name");
             String command=action+" "+name+arguments;audit(actor,"moderation requested",command);
             server.execute(()->{if(p.connection!=connection||!connection.getConnection().isConnected()||!AuthServer.authenticated(p))return;

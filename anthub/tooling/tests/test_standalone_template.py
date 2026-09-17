@@ -14,7 +14,7 @@ class StandaloneTemplateTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory) / 'project'
             shutil.copytree(source, project, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-            self.assertTrue((project / '.github/workflows/release.yml').is_file())
+            self.assertTrue((project / '.github/workflows/anthub.yml').is_file())
             environment = os.environ.copy()
             environment.pop('PYTHONPATH', None)
             def run(*command):
@@ -25,9 +25,12 @@ class StandaloneTemplateTest(unittest.TestCase):
             run('git', '-c', 'user.name=Template test', '-c', 'user.email=test@example.invalid',
                 '-c', 'commit.gpgsign=false', 'commit', '-m', 'Template test')
             environment.update(GITHUB_REPOSITORY='example/standalone', GITHUB_SHA=run('git', 'rev-parse', 'HEAD'), ANTHUB_SEQUENCE='1')
-            run(sys.executable, 'tooling/anthub.py', 'validate', '.')
-            run(sys.executable, 'tooling/publish.py', 'build')
-            run(sys.executable, 'tooling/anthub.py', 'verify-release', 'release-output')
+            tooling = source.parent / 'anthub/tooling/seed'
+            self.assertFalse((project/'tooling').exists())
+            self.assertFalse((project/'schemas').exists())
+            run(sys.executable, str(tooling/'anthub.py'), 'validate', '.')
+            run(sys.executable, str(tooling/'publish.py'), 'build')
+            run(sys.executable, str(tooling/'anthub.py'), 'verify-release', 'release-output')
             lock = json.loads((project / 'release-output/anthub.lock.json').read_text())
             self.assertEqual('https://github.com/example/standalone', lock['project']['repository'])
             self.assertEqual(json.loads((project / 'anthub.json').read_text())['version'], lock['release']['version'])

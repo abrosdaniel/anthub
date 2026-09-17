@@ -1,24 +1,19 @@
-import unittest,sys
+import sys
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'template/tooling'))
-from release_plan import decision,project_version,compare_versions
+import unittest
+sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'anthub/tooling/seed'))
+from publish import plan
+
+def release(version,draft=False,preview=False):
+ return dict(tag_name='pack-v'+version,draft=draft,prerelease=preview)
 class ReleasePlanTest(unittest.TestCase):
-    def test_first_push(self):self.assertEqual((True,1),decision('1.0.0',None,None)[:2])
-    def test_unchanged_version(self):self.assertFalse(decision('1.0.0','1.0.0',{'version':'1.0.0','sequence':1})[0])
-    def test_bumped_version(self):self.assertEqual((True,8),decision('1.1.0','1.0.0',{'version':'1.0.0','sequence':7})[:2])
-    def test_already_published_retry(self):self.assertFalse(decision('1.1.0','1.0.0',{'version':'1.1.0','sequence':8})[0])
-    def test_channel_commit(self):self.assertFalse(decision('1.1.0','1.1.0',{'version':'1.1.0','sequence':8})[0])
-
-    def test_first_release_after_setup_push(self):self.assertTrue(decision('1.0.0','1.0.0',None)[0])
-
-    def test_only_flat_version(self):
-        self.assertEqual("1.2.0",project_version({"version":"1.2.0"}))
-        with self.assertRaises(KeyError):project_version({"pack":{"version":"1.1.0"}})
-
-    def test_downgrade_rejected(self):
-        with self.assertRaises(ValueError):decision('1.0.0','2.0.0',{'version':'2.0.0','sequence':3})
-    def test_build_metadata_is_not_a_new_version(self):
-        with self.assertRaises(ValueError):decision('1.0.0+two','1.0.0+one',{'version':'1.0.0+one','sequence':1})
-    def test_semantic_prerelease_order(self):
-        self.assertGreater(compare_versions('1.0.0','1.0.0-rc.1'),0)
-        self.assertGreater(compare_versions('1.0.0-rc.10','1.0.0-rc.2'),0)
+ def test_first(self):self.assertTrue(plan('1.0.0',[]))
+ def test_retry_published(self):self.assertFalse(plan('1.0.0',[release('1.0.0')]))
+ def test_retry_draft(self):self.assertTrue(plan('1.0.0',[release('1.0.0',True)]))
+ def test_new(self):self.assertTrue(plan('1.10.0',[release('1.9.0')]))
+ def test_reject_rollback(self):
+  with self.assertRaises(ValueError):plan('1.9.0',[release('1.10.0')])
+ def test_ignore_preview(self):self.assertTrue(plan('1.0.0',[release('2.0.0',preview=True)]))
+ def test_reject_noncanonical(self):
+  for version in ('1.0','01.0.0','1.0.0-beta','1.0.0+build'):
+   with self.assertRaises(ValueError):plan(version,[])

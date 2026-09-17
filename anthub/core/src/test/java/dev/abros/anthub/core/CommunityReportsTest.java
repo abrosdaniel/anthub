@@ -31,7 +31,8 @@ class CommunityReportsTest {
     @Test void retentionAndPaging()throws Exception{
         var store=new CommunityReports(database);long now=System.currentTimeMillis();for(int i=0;i<6;i++)store.submit(UUID.randomUUID(),"Player",report(),now+i);
         assertEquals(5,store.list(0).size());assertEquals(1,store.list(1).size());
-        store.prune(now+Duration.ofDays(31).toMillis());assertTrue(store.list(0).isEmpty());
+        String resolved=Json.str(store.list(1).get(0).getAsJsonObject(),"id");store.reply(resolved,"Admin","Done",true);
+        store.prune(now+Duration.ofDays(31).toMillis());assertEquals(5,store.list(0).size());assertTrue(store.list(1).isEmpty());
     }
     @Test void playersOnlySeeTheirOwnReportsAndReplies()throws Exception{
         var store=new CommunityReports(database);var owner=UUID.randomUUID();var other=UUID.randomUUID();long now=System.currentTimeMillis();

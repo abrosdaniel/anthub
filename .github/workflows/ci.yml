@@ -65,7 +65,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r anthub/tooling/requirements.txt
-      - run: python template/tooling/anthub.py validate template
+      - run: python anthub/tooling/seed/anthub.py validate template
       - run: python -m unittest discover -s anthub/tooling/tests
 
   release:

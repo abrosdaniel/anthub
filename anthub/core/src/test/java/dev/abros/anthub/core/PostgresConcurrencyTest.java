@@ -47,4 +47,15 @@ class PostgresConcurrencyTest {
         auth.revoke("Alice",device.id(),3);assertTrue(auth.validSessions(List.of(valid),4).isEmpty());
         var passwordSession=new AuthStore.SessionKey("Alice",0,"");assertTrue(auth.validSessions(List.of(passwordSession),4).contains(passwordSession));auth.block("console","Alice",true,5);assertTrue(auth.validSessions(List.of(passwordSession),6).isEmpty());
     }
+    @Test void independentPasswordLoginsUseFourWorkersWithoutLeakingConnections()throws Exception{
+        var auth=new AuthStore(pool);var players=new ArrayList<String>();char[] password="test password for load".toCharArray();
+        for(int i=0;i<24;i++){String uuid=UUID.randomUUID().toString();players.add(uuid);auth.register("Load"+i,uuid,password,0);}
+        long start=System.nanoTime();
+        try(var workers=Executors.newFixedThreadPool(4)){
+            var jobs=new ArrayList<Callable<String>>();for(int i=0;i<24;i++){int n=i;jobs.add(()->auth.login("Load"+n,players.get(n),password,10000).uuid());}
+            var results=workers.invokeAll(jobs,60,TimeUnit.SECONDS);for(int i=0;i<results.size();i++)assertEquals(players.get(i),results.get(i).get());
+        }
+        assertEquals(0,pool.activeConnections());System.out.printf("24 password logins / 4 workers: %.0f ms%n",(System.nanoTime()-start)/1e6);
+    }
+
 }

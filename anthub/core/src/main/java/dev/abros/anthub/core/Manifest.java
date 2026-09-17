@@ -1,7 +1,7 @@
 package dev.abros.anthub.core;
 import com.google.gson.*;
 import java.util.*;
-public record Manifest(JsonObject json,String repository,String id,String name,String version,String minecraft,String neoForge,String minCore,List<Component> components,List<FileEntry> files,List<Server> servers) {
+public record Manifest(JsonObject json,String repository,String id,String name,String version,String minecraft,String neoForge,String anthubVersion,List<Component> components,List<FileEntry> files,List<Server> servers) {
     public record Component(String id,String name,String kind,String category,Set<String> dependencies,Set<String> conflicts){}
     public record FileEntry(String componentId,String path,String version,List<String> urls,String sha256,long size,String policy){ public FileEntry { urls=List.copyOf(urls); } }
     public record Server(String id,String name,String address){}
@@ -35,7 +35,7 @@ public record Manifest(JsonObject json,String repository,String id,String name,S
             if(!serverIds.add(id))throw new IllegalArgumentException("Duplicate server id");servers.add(new Server(id,Json.str(v,"name"),Json.str(v,"address")));
         }
         if(cs.size()>2000||fs.size()>10000||servers.size()!=1)throw new IllegalArgumentException("Manifest limits");
-        Manifest result=new Manifest(j.deepCopy(),repo,Json.str(p,"id"),Json.str(p,"name"),Json.str(r,"version"),Json.str(m,"version"),Json.str(m,"loaderVersion"),Json.str(j.getAsJsonObject("anthub"),"minVersion"),List.copyOf(cs),List.copyOf(fs),List.copyOf(servers));
+        Manifest result=new Manifest(j.deepCopy(),repo,Json.str(p,"id"),Json.str(p,"name"),Json.str(r,"version"),Json.str(m,"version"),Json.str(m,"loaderVersion"),Json.str(j.getAsJsonObject("anthub"),"version"),List.copyOf(cs),List.copyOf(fs),List.copyOf(servers));
         new Selection(result).validate();return result;
     }
     public String projectKey(){return Hashes.sha256(repository.getBytes(java.nio.charset.StandardCharsets.UTF_8));}

@@ -76,7 +76,7 @@ final class AuthClient {
     private static void officialRequest(String action,String password){
         var mc=Minecraft.getInstance();if(!officialLauncher())return;
         String purpose=action.equals("link")?"link":"login";
-        String challenge=AuthSecrets.digest("anthub-auth-3\n"+purpose+"\n"+Json.str(saved,"fingerprint")+"\n"+Json.str(offer,"challenge")).substring(0,40);
+        String challenge=AuthSecrets.digest("anthub-auth-"+dev.abros.anthub.core.WireProtocols.version("auth")+"\n"+purpose+"\n"+Json.str(saved,"fingerprint")+"\n"+Json.str(offer,"challenge")).substring(0,40);
         Connection current=connection;var screen=mc.screen;
         execute(()->{try{
             if(connection!=current||current==null||!current.isConnected())return;

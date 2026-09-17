@@ -1,6 +1,7 @@
 """Package and publish the tested AntHub commit using the runner's GitHub CLI."""
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
@@ -16,7 +17,7 @@ def run(*args):
 
 def version(root):
     values = re.findall(r"^anthubVersion=(.+)$", (root / "gradle.properties").read_text(), re.M)
-    if len(values) != 1 or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?", values[0]):
+    if len(values) != 1 or not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", values[0]):
         raise ValueError("anthubVersion must be a release version, for example 1.0.0")
     return values[0]
 
@@ -30,11 +31,16 @@ def package(root, artifact, output):
     with zipfile.ZipFile(jars[0]) as jar:
         if "anthub/game.jar" not in jar.namelist():
             raise ValueError("Expected the complete AntHub bundle")
+        with zipfile.ZipFile(io.BytesIO(jar.read("anthub/game.jar"))) as game:
+            protocols = json.loads(game.read("anthub/protocols.json"))
+        if set(protocols) != {"pack", "auth", "menu", "helper"} or any(type(v) is not int or not 1 <= v <= 1000000 for v in protocols.values()):
+            raise ValueError("Invalid bundled protocol versions")
     output.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(jars[0], output / name)
     tracked = subprocess.check_output(["git", "-C", str(root), "ls-files", "-z", "--", "template/"]).decode().split("\0")
-    entries = [Path(p) for p in tracked if p]
-    required = {Path("template/anthub.json"), Path("template/.github/workflows/release.yml"), Path("template/tooling/anthub.py")}
+    entries = [Path(p) for p in tracked if p and (root / p).is_file()]
+    required = {Path("template/anthub.json"), Path("template/.github/workflows/anthub.yml")}
+    entries = sorted(set(entries) | {p for p in required if (root / p).is_file()})
     if not required.issubset(entries):
         raise ValueError("The complete template must be committed before release")
     with zipfile.ZipFile(output / "template.zip", "w", zipfile.ZIP_DEFLATED) as archive:
@@ -45,22 +51,38 @@ def package(root, artifact, output):
             entry = zipfile.ZipInfo(relative.relative_to("template").as_posix(), (1980, 1, 1, 0, 0, 0))
             entry.compress_type = zipfile.ZIP_DEFLATED
             entry.external_attr = 0o100644 << 16
-            archive.writestr(entry, source.read_bytes())
+            data = source.read_bytes()
+            if relative.as_posix() == "template/.github/workflows/anthub.yml":
+                revision = os.environ.get("GITHUB_SHA", "v" + number)
+                if not re.fullmatch(r"[0-9a-f]{40}|v[0-9]+\.[0-9]+\.[0-9]+", revision):
+                    raise ValueError("Invalid tooling revision")
+                text = data.decode()
+                text = re.sub(r"(seed\.yml@)[^\s]+", lambda m: m[1]+revision, text)
+                text = re.sub(r"(tooling-ref: )[^\s]+", lambda m: m[1]+revision, text)
+                data = text.encode()
+            archive.writestr(entry, data)
     repository = os.environ.get("GITHUB_REPOSITORY", "abrosdaniel/anthub")
     neo = re.search(r"^neoVersion=(.+)$", (root / "gradle.properties").read_text(), re.M)
     if neo is None:
         raise ValueError("Missing neoVersion")
-    descriptor = dict(schemaVersion=1, version=number, artifacts=[dict(
+    descriptor = dict(schemaVersion=1, version=number, protocols=protocols, artifacts=[dict(
         minecraft="1.21.1", neoForge=neo[1], java=21,
         url=f"https://github.com/{repository}/releases/download/v{number}/{name}",
         sha256=hashlib.sha256((output / name).read_bytes()).hexdigest(),
-        size=(output / name).stat().st_size, helperProtocolVersion=1)])
+        size=(output / name).stat().st_size, helperProtocolVersion=protocols["helper"])])
     core = output / "core.json"
     core.write_text(json.dumps(descriptor, indent=2) + "\n")
     files = [output / name, output / "template.zip", core]
     sums = output / "SHA256SUMS.txt"
     sums.write_text("".join(hashlib.sha256(p.read_bytes()).hexdigest() + "  " + p.name + "\n" for p in files))
     return files + [sums]
+
+
+def validate_protocol_change(current, previous):
+    """A.B.C: a wire change requires increasing A, even in patch backports."""
+    if current["version"].split(".")[0] == previous["version"].split(".")[0]:
+        if "protocols" not in previous or current["protocols"] != previous["protocols"]:
+            raise ValueError("Network protocols changed within the same A. Increase the major version A before publishing.")
 
 
 def publish(root, artifact, output):
@@ -86,6 +108,16 @@ def publish(root, artifact, output):
     if not notes.is_file() or not notes.read_text(encoding="utf-8").strip():
         raise ValueError("Fill anthub/RELEASE_NOTES.md before publishing")
     files = package(root, artifact, output)
+    current = json.loads((output / "core.json").read_text())
+    same_major = [r for page in pages for r in page if not r["draft"] and not r.get("prerelease", False)
+                  and re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", r["tag_name"])
+                  and r["tag_name"][1:].split(".")[0] == number.split(".")[0]]
+    if same_major:
+        previous = max(same_major, key=lambda r: tuple(map(int, r["tag_name"][1:].split("."))))
+        descriptor = json.loads(run("gh", "release", "download", previous["tag_name"], "--repo", repository, "--pattern", "core.json", "--output", "-"))
+        if descriptor.get("version") != previous["tag_name"][1:]:
+            raise ValueError("Previous release descriptor version mismatch")
+        validate_protocol_change(current, descriptor)
     if not existing:
         args = ["gh", "release", "create", tag, "--repo", repository, "--target", commit,
                 "--title", "AntHub " + number, "--draft", "--notes-file", str(notes)]

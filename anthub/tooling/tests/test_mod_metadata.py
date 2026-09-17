@@ -1,6 +1,6 @@
 import io,sys,unittest,zipfile
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'template/tooling'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'anthub/tooling/seed'))
 from mod_metadata import inspect_jar,accepts,accepts_dependency
 
 def jar(identity='example',constraint='[1.21,1.22)',name='META-INF/neoforge.mods.toml'):

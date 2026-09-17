@@ -1,6 +1,8 @@
 package dev.abros.anthub.network;
 import com.google.gson.*;
 import dev.abros.anthub.core.Json;
+import dev.abros.anthub.core.ConnectionCompatibility;
+import dev.abros.anthub.core.WireProtocols;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -9,7 +11,12 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.function.*;
 public final class Protocol {
+    private static final java.util.concurrent.atomic.AtomicLong lastWarning=new java.util.concurrent.atomic.AtomicLong();
+    private static void failedPacket(Exception error){long now=System.nanoTime(),previous=lastWarning.get();if((previous==0||now-previous>java.util.concurrent.TimeUnit.MINUTES.toNanos(1))&&lastWarning.compareAndSet(previous,now))System.getLogger(Protocol.class.getName()).log(System.Logger.Level.WARNING,"AntHub menu packet rejected: "+error.getClass().getSimpleName());}
+
     public static Consumer<JsonObject> serverHello=j->{};
+    public static Consumer<String> incompatible=version->{};
+    public static volatile java.util.Set<String> supportedFeatures=java.util.Set.of();
     public static Consumer<JsonObject> featureState=j->{};
     public static BiConsumer<JsonObject,IPayloadContext> featureRequest=(j,c)->{};
     public static volatile String expectedServerId="";
@@ -37,13 +44,19 @@ public final class Protocol {
         public Type<FeatureState> type(){return TYPE;}
     }
     public static void register(RegisterPayloadHandlersEvent event){
-        var registrar=event.registrar("1").optional();
-        registrar.configurationToClient(Hello.TYPE,Hello.CODEC,(payload,context)->{
-            try{var hello=Json.parse(payload.json());if(hello.get("protocolVersion").getAsInt()!=1)throw new IllegalArgumentException("Unsupported protocol");if(!expectedServerId.isEmpty()&&!expectedServerId.equals(Json.str(hello,"serverId"))){context.disconnect(net.minecraft.network.chat.Component.literal("AntHub: SERVER_MISMATCH"));return;}expectedServerId="";serverHello.accept(hello);var state=clientState.get();state.addProperty("nonce",Json.str(hello,"nonce"));state.addProperty("protocolVersion",1);context.reply(new ClientState(Json.GSON.toJson(state)));}
+        var handshake=event.registrar("anthub-handshake-1").optional();
+        var registrar=event.registrar(Integer.toString(WireProtocols.version("pack"))).optional();
+        handshake.configurationToClient(Hello.TYPE,Hello.CODEC,(payload,context)->{
+            try{var hello=Json.parse(payload.json());String serverVersion=Json.str(hello,"coreVersion");
+                String failure=ConnectionCompatibility.failure(serverVersion,dev.abros.anthub.AntHub.VERSION,hello.getAsJsonObject("protocols"));
+                if(!failure.isEmpty()){incompatible.accept(ConnectionCompatibility.branch(serverVersion));context.disconnect(net.minecraft.network.chat.Component.literal(failure));return;}
+                supportedFeatures=ConnectionCompatibility.common(hello.get("features"));
+                if(!expectedServerId.isEmpty()&&!Json.opt(hello,"serverId","").isEmpty()&&!expectedServerId.equals(Json.str(hello,"serverId"))){context.disconnect(net.minecraft.network.chat.Component.literal("AntHub: SERVER_MISMATCH"));return;}
+                expectedServerId="";serverHello.accept(hello);var state=clientState.get();state.addProperty("nonce",Json.str(hello,"nonce"));state.addProperty("protocolVersion",WireProtocols.version("pack"));state.add("protocols",WireProtocols.current());state.add("features",ConnectionCompatibility.features());context.reply(new ClientState(Json.GSON.toJson(state)));}
             catch(Exception e){context.disconnect(net.minecraft.network.chat.Component.literal("Invalid AntHub handshake"));}
         });
-        registrar.configurationToServer(ClientState.TYPE,ClientState.CODEC,(payload,context)->{try{serverReply.accept(Json.parse(payload.json()),context);}catch(Exception e){context.disconnect(net.minecraft.network.chat.Component.literal("Invalid AntHub client state"));}});
-        registrar.playToServer(FeatureRequest.TYPE,FeatureRequest.CODEC,(payload,context)->{try{featureRequest.accept(Json.parse(payload.json()),context);}catch(Exception ignored){}});
-        registrar.playToClient(FeatureState.TYPE,FeatureState.CODEC,(payload,context)->{try{featureState.accept(Json.parse(payload.json()));}catch(Exception ignored){}});
+        handshake.configurationToServer(ClientState.TYPE,ClientState.CODEC,(payload,context)->{try{serverReply.accept(Json.parse(payload.json()),context);}catch(Exception e){context.disconnect(net.minecraft.network.chat.Component.literal("Invalid AntHub client state"));}});
+        registrar.playToServer(FeatureRequest.TYPE,FeatureRequest.CODEC,(payload,context)->{try{featureRequest.accept(Json.parse(payload.json()),context);}catch(Exception error){failedPacket(error);}});
+        registrar.playToClient(FeatureState.TYPE,FeatureState.CODEC,(payload,context)->{try{featureState.accept(Json.parse(payload.json()));}catch(Exception error){failedPacket(error);}});
     }
 }

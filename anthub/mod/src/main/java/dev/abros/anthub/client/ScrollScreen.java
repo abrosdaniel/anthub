@@ -7,7 +7,10 @@ abstract class ScrollScreen extends Screen {
  protected int firstRow,visibleRows=1;private int count,top,bottom,right;private double position;private boolean dragging;
  protected ScrollScreen(Component title){super(title);}
  protected void scrollArea(int count,int top,int bottom,int rowHeight,int right){this.count=count;this.top=top;this.bottom=bottom;this.right=right;visibleRows=Math.max(1,(bottom-top)/rowHeight);position=Math.max(0,Math.min(position,Math.max(0,count-visibleRows)));firstRow=(int)position;}
- private void move(double value){position=Math.max(0,Math.min(value,Math.max(0,count-visibleRows)));int next=(int)position;if(next!=firstRow){firstRow=next;rowsChanged();}}
+ private void move(double value){position=Math.max(0,Math.min(value,Math.max(0,count-visibleRows)));int next=(int)position;if(next!=firstRow){firstRow=next;rowsChanged();}if(position>=Math.max(0,count-visibleRows))onScrollEnd();}
+ protected void onScrollEnd(){}
+ protected void restoreScroll(int row){position=Math.max(0,row);firstRow=(int)position;}
+ protected void resetScroll(){position=0;firstRow=0;}
  protected void rowsChanged(){rebuildWidgets();}
  @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(y>=top&&y<bottom){move(position-dy*3);return true;}return super.mouseScrolled(x,y,dx,dy);}
  private int thumb(){return Math.max(12,(bottom-top)*visibleRows/Math.max(1,count));}

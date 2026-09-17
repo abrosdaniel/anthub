@@ -1,6 +1,16 @@
 package dev.abros.anthub.core;
 public final class Versions {
     private Versions(){}
+    /** Public AntHub releases are A.B.C; A is the compatibility boundary. */
+    public static boolean sameMajor(String installed,String required){
+        String pattern="(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)";
+        return installed.matches(pattern)&&required.matches(pattern)&&installed.split("\\.")[0].equals(required.split("\\.")[0]);
+    }
+    /** Project requirements name a release line, not a concrete mod version. */
+    public static boolean supportsBranch(String installed,String branch){
+        return installed!=null&&branch!=null&&branch.matches("(0|[1-9][0-9]*)\\.x")
+            &&sameMajor(installed,branch.substring(0,branch.length()-2)+".0.0");
+    }
     public static int compare(String a,String b){
         String[] aa=a.split("\\+",2)[0].split("-",2),bb=b.split("\\+",2)[0].split("-",2);
         String[] av=aa[0].split("\\."),bv=bb[0].split("\\.");if(av.length!=3||bv.length!=3)throw new IllegalArgumentException("SemVer required");

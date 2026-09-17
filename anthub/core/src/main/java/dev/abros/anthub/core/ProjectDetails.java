@@ -14,6 +14,9 @@ public final class ProjectDetails {
     private final java.util.function.LongSupplier clock;
     private final Map<String,Long> checked = new ConcurrentHashMap<>();
     private static final long FRESH_NANOS = java.util.concurrent.TimeUnit.MINUTES.toNanos(1);
+    private final Object[] locks=new Object[64];
+    {java.util.Arrays.setAll(locks,i->new Object());}
+    private Object lock(String repo){return locks[Math.floorMod(repo.hashCode(),locks.length)];}
     private final Map<String, Details> known = new ConcurrentHashMap<>();
     public ProjectDetails(Path game, Remote remote) { this(game,remote,System::nanoTime); }
     ProjectDetails(Path game, Remote remote, java.util.function.LongSupplier clock) { this.root=game.resolve("anthub/projects"); this.remote=remote; this.clock=clock; }
@@ -33,16 +36,16 @@ public final class ProjectDetails {
         return new Details(name,address);
     }
     /** Connection checks reuse a successful response for one minute; this never schedules requests. */
-    public synchronized Details refreshIfStale(String repository) throws Exception {
+    public Details refreshIfStale(String repository) throws Exception {
         String repo=Repositories.normalize(repository);
-        Long last=checked.get(repo);
+        synchronized(lock(repo)){Long last=checked.get(repo);
         if(last!=null && clock.getAsLong()-last<FRESH_NANOS)return known.get(repo);
-        return refresh(repo);
+        return refresh(repo);}
     }
     /** Explicit refresh bypasses the age check. Disk cache is never treated as freshly checked. */
-    public synchronized Details refresh(String repository) throws Exception {
+    public Details refresh(String repository) throws Exception {
         String repo=Repositories.normalize(repository);
-        if(!known.containsKey(repo))load(repo);
+        synchronized(lock(repo)){if(!known.containsKey(repo))load(repo);
         JsonObject json;
         try { json=Json.parse(new String(remote.bytes(Repositories.raw(repo,"anthub.json"),8*1024*1024),StandardCharsets.UTF_8)); }
         catch(Remote.Unavailable|java.net.UnknownHostException offline) { return known.get(repo); }
@@ -52,6 +55,6 @@ public final class ProjectDetails {
         Json.write(file(repo),cache);
         known.put(repo,details);
         checked.put(repo,clock.getAsLong());
-        return details;
+        return details;}
     }
 }

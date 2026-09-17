@@ -22,10 +22,9 @@ class ServerProjectPolicyTest {
         try(var input=getClass().getResourceAsStream("/fixtures/lock.json")){return Json.parse(new String(input.readAllBytes(),StandardCharsets.UTF_8));}
     }
     void publish(Source source,String version,int sequence)throws Exception {
-        var lock=manifest();lock.getAsJsonObject("release").addProperty("version",version);lock.getAsJsonObject("release").addProperty("sequence",sequence);
+        var lock=manifest();lock.getAsJsonObject("release").addProperty("version",version);
         byte[] bytes=Json.GSON.toJson(lock).getBytes(StandardCharsets.UTF_8);String url=REPO+"/releases/download/pack-v"+version+"/anthub.lock.json";
-        var pointer=new JsonObject();pointer.addProperty("schemaVersion",1);pointer.addProperty("repository",REPO);pointer.addProperty("channel","stable");pointer.addProperty("version",version);pointer.addProperty("sequence",sequence);pointer.addProperty("lockUrl",url);pointer.addProperty("lockSha256",Hashes.sha256(bytes));pointer.addProperty("publishedAt","2026-09-16T00:00:00Z");
-        source.values.put(Repositories.raw(REPO,"channels/stable.json"),Json.GSON.toJson(pointer).getBytes(StandardCharsets.UTF_8));source.values.put(url,bytes);
+        source.values.put("https://api.github.com/repos/example/project/releases?per_page=100&page=1",("[{\"tag_name\":\"pack-v"+version+"\",\"draft\":false,\"prerelease\":false}]").getBytes(StandardCharsets.UTF_8));source.values.put(url,bytes);source.values.put(url.replace(".json",".sha256"),Hashes.sha256(bytes).getBytes(StandardCharsets.UTF_8));
     }
     JsonObject state(ServerProjectPolicy policy){
         var state=new JsonObject();state.addProperty("repository",REPO);state.addProperty("lockSha256",policy.hash());state.addProperty("protocolVersion",1);state.addProperty("coreVersion","1.0.0");state.addProperty("requiredFilesDigest",policy.digest());return state;
@@ -68,9 +67,11 @@ class ServerProjectPolicyTest {
         var source=new Source();publish(source,"1.0.0",1);var client=new RepositoryClient(game,source);ServerProjectPolicy.load(client,REPO,true);source.offline=true;
         assertThrows(IllegalStateException.class,()->ServerProjectPolicy.load(client,"https://github.com/example/other",true));
     }
-    @Test void verifiesMinimumModVersionAndRequiredFiles()throws Exception {
+    @Test void verifiesMajorModVersionAndRequiredFiles()throws Exception {
         var source=new Source();publish(source,"1.0.0",1);var policy=ServerProjectPolicy.load(new RepositoryClient(game,source),REPO,true);
-        var state=state(policy);state.addProperty("coreVersion","0.1.0");assertEquals("AntHub: CORE_UPDATE_REQUIRED",policy.verify(state));
+        var state=state(policy);state.addProperty("coreVersion","0.1.0");assertTrue(policy.verify(state).contains("1.x"));
+        state=state(policy);state.addProperty("coreVersion","2.0.0");assertTrue(policy.verify(state).contains("1.x"));
+        state=state(policy);state.addProperty("coreVersion","1.99.88");assertEquals("",policy.verify(state));
         state=state(policy);state.addProperty("requiredFilesDigest","bad");assertEquals("AntHub: REPAIR_REQUIRED",policy.verify(state));
         assertFalse(policy.verify(new JsonObject()).isEmpty());
     }

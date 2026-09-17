@@ -15,7 +15,7 @@ class ProjectDetailsTest {
             requests++;assertEquals(Repositories.raw(REPO,"anthub.json"),url);
             if(offline)throw new Unavailable("offline");
             var json=Json.parse("{\"name\":\"sample\",\"version\":\"1.0.0\",\"server\":{\"address\":\"sample.org\"},\"minecraft\":{\"version\":\"1.21.1\",\"loaderVersion\":\"21.1.250\"},\"components\":[]}");
-            json.addProperty("name",name);json.getAsJsonObject("server").addProperty("address",address);
+            json.addProperty("anthubVersion","1.x");json.addProperty("name",name);json.getAsJsonObject("server").addProperty("address",address);
             if(invalid)json.remove("server");
             return Json.GSON.toJson(json).getBytes(StandardCharsets.UTF_8);
         }

@@ -1,7 +1,7 @@
 import argparse, json, shutil, sys, tempfile, unittest
 from pathlib import Path
 from unittest.mock import patch
-sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'template/tooling'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'anthub/tooling/seed'))
 import anthub
 class MirrorsTest(unittest.TestCase):
  def build(self,responses,local=False):
@@ -11,7 +11,7 @@ class MirrorsTest(unittest.TestCase):
    if local:
     (root/'test.jar').write_bytes(b'good');p['components'][0]['files'][0]['repositoryPath']='test.jar'
    anthub.write(root/'anthub.json',p)
-   args=argparse.Namespace(project=root,output=Path(folder)/'out',repository='https://github.com/example/project',commit='a'*40,sequence=1,channel='stable',policy='recommended')
+   args=argparse.Namespace(project=root,output=Path(folder)/'out',repository='https://github.com/example/project',commit='a'*40,policy='recommended')
    with patch.object(anthub,'download',side_effect=responses):anthub.build(args)
    anthub.verify_release(args.output)
    return anthub.read(args.output/'anthub.lock.json')['files'][0]

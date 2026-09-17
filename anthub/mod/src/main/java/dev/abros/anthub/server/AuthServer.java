@@ -32,8 +32,10 @@ public final class AuthServer {
     private static final ModConfigSpec.IntValue MINIMUM_PASSWORD_LENGTH=B.comment("Минимальная длина нового пароля: регистрация, сброс и смена. Старые пароли продолжают работать. Применяется после перезапуска сервера.").defineInRange("minimumPasswordLength",6,6,128);
     private static final ModConfigSpec SPEC=B.build();
     private static final ConfigurationTask.Type TASK=new ConfigurationTask.Type(ResourceLocation.fromNamespaceAndPath("anthub","auth"));
-    private static final ThreadPoolExecutor WORK=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(64),r->{var t=new Thread(r,"AntHub auth");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
-    private static final ExecutorService VALIDATION=Executors.newSingleThreadExecutor(r->{var t=new Thread(r,"AntHub session checks");t.setDaemon(true);return t;});
+    private static final ThreadPoolExecutor WORK=new ThreadPoolExecutor(4,4,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(64),r->{var t=new Thread(r,"AntHub auth");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
+    private static final ExecutorService OFFICIAL=new ThreadPoolExecutor(2,2,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(16),r->{var t=new Thread(r,"AntHub official verification");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
+    private static final ScheduledExecutorService DEADLINES=Executors.newSingleThreadScheduledExecutor(r->{var t=new Thread(r,"AntHub auth deadlines");t.setDaemon(true);return t;});
+    private static final ExecutorService VALIDATION=new ThreadPoolExecutor(1,1,0L,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<>(1),r->{var t=new Thread(r,"AntHub session checks");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
     private static final AtomicBoolean validating=new AtomicBoolean();
     private static final Map<Connection,Session> SESSIONS=new ConcurrentHashMap<>();
     private static volatile AuthStore store;private static AuthTls.Identity identity;private static MinecraftServer server;private static Path root;private static volatile String mode="false";private static long lastCheck;
@@ -92,27 +94,36 @@ public final class AuthServer {
         long now=System.currentTimeMillis();if(now-s.window>1000){s.window=now;s.packets=0;}if(++s.packets>40){s.disconnect("Слишком много запросов Auth");return;}if(s.queued.incrementAndGet()>4){s.queued.decrementAndGet();s.disconnect("Слишком много запросов Auth");return;}
         // Capture current permission from the game thread; no global admin/OP fallback.
         boolean reset=c.listener() instanceof ServerGamePacketListenerImpl play&&mayReset(play.player);
-        try{WORK.execute(()->{try{if(!s.connection.isConnected())return;s.resetAllowed=reset;s.tunnel.receive(bytes);if(s.tunnel.ready()&&!s.offered){s.offered=true;s.offer();}}catch(Exception ex){s.disconnect("Ошибка защищённого соединения Auth");}finally{s.queued.decrementAndGet();}});}catch(RejectedExecutionException ex){s.queued.decrementAndGet();s.disconnect("Auth занят. Попробуйте позже");}
+        try{s.serial.execute(()->{try{if(!s.connection.isConnected())return;s.resetAllowed=reset;s.tunnel.receive(bytes);if(s.tunnel.ready()&&!s.offered){s.offered=true;s.offer();}}catch(Exception ex){s.disconnect("Ошибка защищённого соединения Auth");}finally{s.queued.decrementAndGet();}});}catch(RejectedExecutionException ex){s.queued.decrementAndGet();s.disconnect("Auth занят. Попробуйте позже");}
     }
     private static final class Session {
         final Connection connection;final ServerConfigurationPacketListenerImpl listener;final String name,uuid,challenge=AuthSecrets.token().substring(0,32);final long created=System.currentTimeMillis();final AtomicInteger queued=new AtomicInteger();final AuthStore database=store;
+        final dev.abros.anthub.core.SerialExecutor serial=new dev.abros.anthub.core.SerialExecutor(WORK,4);
+        boolean officialPending;volatile Future<?> officialRequest;
         final AuthTls.Tunnel tunnel;volatile AuthStore.Account account;volatile boolean joined,transportReady;boolean upgrading;boolean offered,resetAllowed;volatile String device="";long window;int packets,attempts;long lastAction;
         Session(ServerConfigurationPacketListenerImpl listener)throws Exception{this.listener=listener;connection=listener.getConnection();name=AuthStore.name(listener.getOwner().getName());uuid=listener.getOwner().getId().toString();tunnel=new AuthTls.Tunnel(identity.context(),false,b->connection.send(new ClientboundCustomPayloadPacket(new AuthProtocol.ToClient(b))),this::message);}
         void send(JsonObject j)throws Exception{tunnel.send(Json.GSON.toJson(j));}
         void offer()throws Exception{var j=result("offer","");j.addProperty("mode",mode);j.addProperty("name",name);j.addProperty("challenge",challenge);var a=database.account(name);j.addProperty("type",a==null?"new":a.type());j.addProperty("linked",a!=null&&a.official()!=null);j.addProperty("registration",REGISTRATION.get());j.addProperty("minimumPasswordLength",database.minimumPasswordLength());send(j);}
-        void message(String json){try{
+        void message(String json){message(json,null);}
+        void message(String json,String verified){try{
             var j=Json.parse(json);String action=Json.str(j,"action");long now=System.currentTimeMillis();
+            if(officialPending&&verified==null)throw new IllegalArgumentException("Подождите подтверждения Minecraft-аккаунта");
             if(action.equals("accept")){if(joined||account==null)throw new IllegalArgumentException("Unexpected auth confirmation");validate();joined=true;server.execute(()->{if(connection.isConnected())listener.finishCurrentTask(TASK);});return;}
-            if(now-lastAction<700)throw new IllegalArgumentException("Подождите перед следующим действием");lastAction=now;
+            if(verified==null&&now-lastAction<700)throw new IllegalArgumentException("Подождите перед следующим действием");lastAction=now;
+            if(verified==null&&(action.equals("official")||action.equals("link"))){
+                if(!mode.equals("hybrid")||action.equals("link")&&!joined||action.equals("official")&&joined)throw new IllegalArgumentException("Операция недоступна");
+                if(++attempts>10){disconnect("Слишком много попыток входа");return;}database.checkRate(name,now);
+                verifyLater(json,j,action.equals("link")?"link":"login");return;
+            }
             if(!joined){
-                if(account!=null)throw new IllegalArgumentException("Ожидается подтверждение входа");if(++attempts>10){disconnect("Слишком много попыток входа");return;}database.checkRate(name,now);
+                if(account!=null)throw new IllegalArgumentException("Ожидается подтверждение входа");if(verified==null){if(++attempts>10){disconnect("Слишком много попыток входа");return;}database.checkRate(name,now);}
                 switch(action){
                     case "login" -> account=withPassword(j,"password",p->database.login(name,uuid,p,now));
                     case "register" -> {if(!REGISTRATION.get())throw new IllegalArgumentException("Регистрация закрыта. Обратитесь к администратору");account=withPassword(j,"password",p->database.register(name,uuid,p,now));}
                     case "device" -> {String token=Json.str(j,"token");account=database.deviceLogin(name,uuid,token,now);device=database.deviceId(name,token);}
                     case "official" -> {
                         if(!mode.equals("hybrid"))throw new IllegalArgumentException("Официальный вход недоступен");
-                        account=database.official(name,uuid,verifiedOfficial(j,"login"),now);
+                        account=database.official(name,uuid,verified,now);
                     }
                     case "reset" -> {withPassword(j,"password",p->{database.reset(name,uuid,Json.str(j,"invitation"),p,now);return null;});remember(database.account(name));invalidate(name);send(result("resetDone","Пароль изменён. Войдите с новым паролем"));return;}
                     default -> throw new IllegalArgumentException("Unexpected auth operation");
@@ -124,7 +135,7 @@ public final class AuthServer {
             validate();switch(action){
                 case "devices" -> {var out=result("devices","");out.addProperty("type",account.type());out.addProperty("current",device);out.addProperty("linked",account.official()!=null);out.addProperty("mode",mode);out.add("devices",database.devices(name,now));send(out);}
                 case "link" -> {
-                    String official=verifiedOfficial(j,"link");
+                    String official=verified;
                     account=withPassword(j,"password",p->database.linkOfficial(name,uuid,official,p,now));device="";remember(account);
                     invalidate(name);send(result("updated","Minecraft-аккаунт привязан. Остальные сеансы отозваны"));
                 }
@@ -143,27 +154,36 @@ public final class AuthServer {
                 default -> throw new IllegalArgumentException("Unknown auth operation");
             }
         }catch(Exception ex){try{send(result("error",ex instanceof IllegalArgumentException?ex.getMessage():"Не удалось выполнить действие Auth. Попробуйте позже"));}catch(Exception ignored){disconnect("Ошибка Auth");}}}
-        String verifiedOfficial(JsonObject request,String purpose)throws Exception{
-            if(!mode.equals("hybrid"))throw new IllegalArgumentException("Вход через Minecraft отключён на сервере");
+        void verifyLater(String json,JsonObject request,String purpose)throws Exception{
             String launcherName=AuthStore.name(Json.str(request,"officialName"));
-            var verified=server.getSessionService().hasJoinedServer(launcherName,proof(challenge,identity.fingerprint(),purpose),null);
-            if(verified==null||!launcherName.equalsIgnoreCase(verified.profile().getName())){database.failure(name,System.currentTimeMillis());throw new IllegalArgumentException("Не удалось подтвердить Minecraft-аккаунт");}
-            return verified.profile().getId().toString();
+            String digest=proof(challenge,identity.fingerprint(),purpose);var service=server.getSessionService();
+            officialPending=true;
+            var result=new CompletableFuture<String>();
+            try{officialRequest=OFFICIAL.submit(()->{try{
+                var profile=service.hasJoinedServer(launcherName,digest,null);
+                if(profile==null||!launcherName.equalsIgnoreCase(profile.profile().getName()))throw new IllegalArgumentException("Minecraft account not verified");
+                result.complete(profile.profile().getId().toString());
+            }catch(Exception failure){result.completeExceptionally(failure);}});}catch(RejectedExecutionException busy){officialPending=false;throw new IllegalArgumentException("Проверка Minecraft занята. Попробуйте позже");}
+            var timeout=DEADLINES.schedule(()->{if(result.completeExceptionally(new TimeoutException()))officialRequest.cancel(true);},10,TimeUnit.SECONDS);
+            result.whenComplete((uuid,error)->{timeout.cancel(false);try{serial.execute(()->{
+                officialPending=false;if(!connection.isConnected())return;
+                if(error==null)message(json,uuid);else try{database.failure(name,System.currentTimeMillis());send(result("error","Не удалось подтвердить Minecraft-аккаунт. Попробуйте позже"));}catch(Exception failure){disconnect("Ошибка проверки Minecraft-аккаунта");}
+            });}catch(RejectedExecutionException busy){disconnect("Auth занят. Попробуйте позже");}});
         }
         void validate()throws Exception{var current=database.account(name);if(current==null||current.blocked()||current.generation()!=account.generation()||!device.isEmpty()&&!database.hasDevice(name,device,System.currentTimeMillis())){disconnect("Доступ отозван. Войдите заново");throw new IllegalArgumentException("Доступ отозван");}}
         void disconnect(String text){joined=false;server.execute(()->connection.disconnect(Component.literal(text)));}
-        void close(){tunnel.close();account=null;}
+        void close(){var request=officialRequest;if(request!=null)request.cancel(true);tunnel.close();account=null;}
     }
-    private static String proof(String challenge,String fingerprint,String purpose){return AuthSecrets.digest("anthub-auth-3\n"+purpose+"\n"+fingerprint+"\n"+challenge).substring(0,40);}
+    private static String proof(String challenge,String fingerprint,String purpose){return AuthSecrets.digest("anthub-auth-"+dev.abros.anthub.core.WireProtocols.version("auth")+"\n"+purpose+"\n"+fingerprint+"\n"+challenge).substring(0,40);}
     private interface PasswordWork<T>{T run(char[] password)throws Exception;}
     private static <T>T withPassword(JsonObject j,String field,PasswordWork<T> work)throws Exception{String value=Json.str(j,field);if(value.length()>128)throw new IllegalArgumentException("Пароль слишком длинный");char[] password=value.toCharArray();j.remove(field);try{return work.run(password);}finally{Arrays.fill(password,'\0');}}
     private static JsonObject result(String kind,String text){var j=new JsonObject();j.addProperty("kind",kind);j.addProperty("text",text==null?"":text);return j;}
     private static void tick(net.neoforged.neoforge.event.tick.ServerTickEvent.Post e){if(!enabled()||System.currentTimeMillis()-lastCheck<1000)return;lastCheck=System.currentTimeMillis();for(var s:SESSIONS.values()){
-        if(!s.connection.isConnected()){SESSIONS.remove(s.connection,s);try{WORK.execute(s::close);}catch(RejectedExecutionException ignored){}continue;}
+        if(!s.connection.isConnected()){SESSIONS.remove(s.connection,s);try{s.serial.execute(s::close);}catch(RejectedExecutionException ignored){}continue;}
         if(!s.joined&&lastCheck-s.created>180000){s.disconnect("Время входа истекло");continue;}
     }
         var checks=new HashMap<Session,AuthStore.SessionKey>();for(var session:SESSIONS.values()){var account=session.account;if(session.joined&&account!=null)checks.put(session,new AuthStore.SessionKey(session.name,account.generation(),session.device));}
-        if(!checks.isEmpty()&&validating.compareAndSet(false,true)){var database=store;VALIDATION.execute(()->{try{var valid=database.validSessions(checks.values(),System.currentTimeMillis());checks.forEach((session,key)->{if(!valid.contains(key))session.disconnect("Доступ отозван. Войдите заново");});}catch(Exception ex){checks.keySet().forEach(session->session.disconnect("Не удалось подтвердить сеанс Auth"));}finally{validating.set(false);}});}
+        if(!checks.isEmpty()&&validating.compareAndSet(false,true)){var database=store;try{VALIDATION.execute(()->{try{var valid=database.validSessions(checks.values(),System.currentTimeMillis());checks.forEach((session,key)->{if(!valid.contains(key))session.disconnect("Доступ отозван. Войдите заново");});}catch(Exception ex){checks.keySet().forEach(session->session.disconnect("Не удалось подтвердить сеанс Auth"));}finally{validating.set(false);}});}catch(RejectedExecutionException busy){validating.set(false);checks.keySet().forEach(session->session.disconnect("Не удалось подтвердить сеанс Auth. Подключитесь заново"));}}
     }
     // Called on the auth worker immediately after committing a credential change.
     private static void invalidate(String name){for(var session:SESSIONS.values())if(session.account!=null&&session.name.equalsIgnoreCase(name))try{session.validate();}catch(Exception ex){session.disconnect("Доступ отозван. Войдите заново");}}

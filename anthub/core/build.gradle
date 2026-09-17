@@ -1,12 +1,5 @@
 dependencies { api 'com.google.code.gson:gson:2.10.1' }
 
-tasks.named('processResources') {
-    // The project contract has one canonical source in the standalone template.
-    from(rootProject.file('template/schemas/v1')) {
-        include 'lock.schema.json', 'channel.schema.json', 'project.schema.json'
-        into 'anthub/schemas/v1'
-    }
-}
 
 dependencies { implementation 'org.postgresql:postgresql:42.7.13'; implementation('com.zaxxer:HikariCP:6.3.3') { exclude group: 'org.slf4j', module: 'slf4j-api' }; implementation 'org.slf4j:slf4j-api:2.0.9'; api 'org.bouncycastle:bcpkix-jdk18on:1.85' }
 

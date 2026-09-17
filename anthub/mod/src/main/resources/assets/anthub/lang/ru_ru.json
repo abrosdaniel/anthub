@@ -35,7 +35,6 @@
   "anthub.kind.optional": "Необязательный",
   "anthub.added": "Добавлено",
   "anthub.history.empty": "Сохранённых версий пока нет",
-  "anthub.error.channelmissing": "Релиз AntHub ещё не опубликован. Автору нужно изменить pack.version и выполнить push в основную ветку.",
   "anthub.error.notfound": "Запрошенный файл не найден в GitHub. Проверьте адрес репозитория и публикацию релиза.",
   "anthub.error.ratelimit": "GitHub ограничил доступ к запросам. Попробуйте позже.",
   "anthub.error.network": "Не удалось связаться с GitHub, сохранённой версии проекта нет. Проверьте соединение и повторите попытку.",
@@ -182,5 +181,6 @@
   "anthub.config.enforced": "Файл обязателен для проекта",
   "anthub.rollback.target": "Версия после отката: %s",
   "anthub.server.command.pardon": "Разбанить",
-  "anthub.server.groups": "Мои объединения"
+  "anthub.server.groups": "Мои объединения",
+  "anthub.pack": "Сборка"
 }

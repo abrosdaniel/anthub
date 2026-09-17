@@ -1,6 +1,7 @@
 {
   "name": "Example Server",
   "version": "1.0.0",
+  "anthubVersion": "2.x",
   "server": {
     "address": "play.example.org:25565"
   },

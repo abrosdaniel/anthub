@@ -1,0 +1,9 @@
+name: AntHub project
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: write
+jobs:
+  project:
+    uses: abrosdaniel/anthub/.github/workflows/seed.yml@v2.0.0
+    with:
+      tooling-ref: v2.0.0

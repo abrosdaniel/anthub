@@ -11,9 +11,11 @@ import java.util.Objects;
 public final class PgDatabase implements AutoCloseable {
     @FunctionalInterface public interface Work<T> { T run() throws Exception; }
     private final HikariDataSource pool;
+    private final java.util.concurrent.Semaphore communitySlots;
     private final ThreadLocal<Connection> current = new ThreadLocal<>();
 
     public PgDatabase(DatabaseSettings settings) throws Exception {
+        communitySlots = new java.util.concurrent.Semaphore(Math.max(1, settings.poolSize()-2), true);
         var config = new HikariConfig();
         config.setPoolName("AntHub database");
         config.setDriverClassName("org.postgresql.Driver");
@@ -40,19 +42,19 @@ public final class PgDatabase implements AutoCloseable {
         pool = opened;
         try {
             transaction(() -> {
-                lock("schema-v1");
-                try (var statement = connection().createStatement()) {
-                    boolean schemaExists;
-                    try(var schemas=statement.executeQuery("SELECT 1 FROM pg_namespace WHERE nspname='anthub'")){schemaExists=schemas.next();}
-                    if(!schemaExists)statement.execute("CREATE SCHEMA anthub");
-                    try (var input = PgDatabase.class.getResourceAsStream("/anthub/database.sql")) {
-                        String ddl = new String(Objects.requireNonNull(input).readAllBytes(), StandardCharsets.UTF_8);
-                        for (String sql : ddl.split(";")) if (!sql.isBlank()) statement.execute(sql);
-                    }
-                }
+                DatabaseMigrations.apply(this);
                 return null;
             });
-        } catch (Exception ex) { pool.close(); throw new IllegalStateException("Cannot initialize AntHub PostgreSQL schema. Check database ownership and PostgreSQL version. SQL state: "+(ex instanceof SQLException sql?sql.getSQLState():"unavailable")); }
+        } catch (Exception ex) { pool.close(); throw new IllegalStateException("Cannot initialize AntHub PostgreSQL schema. Check database ownership and PostgreSQL version. SQL state: "+(ex instanceof SQLException sql?sql.getSQLState():"unavailable")+". "+(ex instanceof IllegalStateException?ex.getMessage():"Migration transaction rolled back")); }
+    }
+
+    /** Leave capacity for login and session validation even when menu reads are busy. */
+    public <T> T communityTransaction(Work<T> work) throws Exception {
+        if (current.get()!=null) return work.run();
+        if (!communitySlots.tryAcquire(2, java.util.concurrent.TimeUnit.SECONDS))
+            throw new CommunityFailure(CommunityFailure.Code.UNAVAILABLE,"Сервер занят. Повторите действие чуть позже.");
+        try { return transaction(work); }
+        finally { communitySlots.release(); }
     }
 
     public boolean inTransaction(){return current.get()!=null;}

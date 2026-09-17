@@ -52,3 +52,8 @@ dependencies {
         })
     }
 }
+
+// Explicit developer build only: fixtures are not included in release artifacts.
+if (project.hasProperty('anthubUiHarness')) {
+    sourceSets.main.java.srcDir 'src/uiHarness/java'
+}

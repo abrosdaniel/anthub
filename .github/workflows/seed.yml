@@ -1,0 +1,48 @@
+name: Validate and publish AntHub seed
+on:
+  workflow_call:
+    inputs:
+      tooling-ref:
+        description: Same AntHub revision as the reusable workflow
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    concurrency:
+      group: anthub-seed-${{ github.repository }}-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out seed
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: seed
+          persist-credentials: false
+      - name: Check out AntHub tooling
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: abrosdaniel/anthub
+          ref: ${{ inputs.tooling-ref }}
+          path: tools
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: pip install -r tools/anthub/tooling/requirements.txt
+      - name: Validate seed
+        run: python tools/anthub/tooling/seed/anthub.py validate seed
+      - name: Verify build without publishing
+        if: github.event_name == 'pull_request' || github.ref != format('refs/heads/{0}', github.event.repository.default_branch)
+        working-directory: seed
+        run: python ../tools/anthub/tooling/seed/publish.py build
+      - name: Publish release
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && !github.event.deleted
+        working-directory: seed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python ../tools/anthub/tooling/seed/publish.py publish

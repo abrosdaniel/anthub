@@ -39,5 +39,5 @@ public final class AuthProtocol {
         public static final StreamCodec<FriendlyByteBuf,ToClient> CODEC=StreamCodec.of((b,p)->b.writeByteArray(p.bytes),b->new ToClient(b.readByteArray(24576)));
         public Type<ToClient> type(){return TYPE;}
     }
-    public static void register(RegisterPayloadHandlersEvent e){var r=e.registrar("auth-3").optional();r.configurationToServer(Upgrade.TYPE,Upgrade.CODEC,(p,c)->upgrade.accept(c));r.configurationToClient(Ready.TYPE,Ready.CODEC,(p,c)->ready.accept(c));r.configurationToClient(Hello.TYPE,Hello.CODEC,(p,c)->hello.accept(p.fingerprint,c));r.commonToClient(ToClient.TYPE,ToClient.CODEC,(p,c)->client.accept(p.bytes,c));r.commonToServer(ToServer.TYPE,ToServer.CODEC,(p,c)->server.accept(p.bytes,c));}
+    public static void register(RegisterPayloadHandlersEvent e){var r=e.registrar("auth-"+dev.abros.anthub.core.WireProtocols.version("auth")).optional();r.configurationToServer(Upgrade.TYPE,Upgrade.CODEC,(p,c)->upgrade.accept(c));r.configurationToClient(Ready.TYPE,Ready.CODEC,(p,c)->ready.accept(c));r.configurationToClient(Hello.TYPE,Hello.CODEC,(p,c)->hello.accept(p.fingerprint,c));r.commonToClient(ToClient.TYPE,ToClient.CODEC,(p,c)->client.accept(p.bytes,c));r.commonToServer(ToServer.TYPE,ToServer.CODEC,(p,c)->server.accept(p.bytes,c));}
 }

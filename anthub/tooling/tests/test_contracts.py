@@ -1,7 +1,7 @@
 import importlib.util,unittest,copy,sys
 from pathlib import Path
-sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'template/tooling'))
-spec=importlib.util.spec_from_file_location('anthub',Path(__file__).resolve().parents[3]/'template/tooling/anthub.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'anthub/tooling/seed'))
+spec=importlib.util.spec_from_file_location('anthub',Path(__file__).resolve().parents[3]/'anthub/tooling/seed/anthub.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 class Contracts(unittest.TestCase):
     def test_template(self):m.load_project(Path(__file__).resolve().parents[3]/'template')
     def test_traversal(self):

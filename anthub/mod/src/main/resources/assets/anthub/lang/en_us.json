@@ -35,7 +35,6 @@
   "anthub.kind.optional": "Optional",
   "anthub.added": "Added",
   "anthub.history.empty": "No saved versions yet",
-  "anthub.error.channelmissing": "No AntHub release has been published. The author must change pack.version and push to the default branch.",
   "anthub.error.notfound": "The requested file was not found on GitHub. Check the repository address and release publication.",
   "anthub.error.ratelimit": "GitHub has restricted requests. Please try again later.",
   "anthub.error.network": "Could not reach GitHub and no saved project version is available. Check your connection and try again.",
@@ -182,5 +181,6 @@
   "anthub.config.enforced": "Project requires this file",
   "anthub.rollback.target": "Version after rollback: %s",
   "anthub.server.command.pardon": "Unban",
-  "anthub.server.groups": "My communities"
+  "anthub.server.groups": "My communities",
+  "anthub.pack": "Pack"
 }

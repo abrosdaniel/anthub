@@ -18,9 +18,9 @@ final class ServerUpdateScreen extends Screen {
                 busy=false;if(minecraft.screen!=this)return;b.active=true;
                 if(error!=null){status=error.getCause()==null?error.getMessage():error.getCause().getMessage();return;}
                 try{
-                    if(!Hashes.sha256(release.bytes()).equals(Json.str(offer,"requiredLockSha256")))throw new IllegalArgumentException(Client.tr("server.versionunavailable").getString());
+                    if(!release.hash().equals(Json.str(offer,"requiredLockSha256")))throw new IllegalArgumentException(Client.tr("server.versionunavailable").getString());
                     var target=release.manifest().servers().getFirst();
-                    Client.hub.rememberProject(release.manifest());Client.hub.pendingConnection(release.manifest(),target,Hashes.sha256(release.bytes()));
+                    Client.hub.rememberProject(release.manifest());Client.hub.pendingConnection(release.manifest(),target,release.hash());
                     minecraft.setScreen(new ComponentsScreen(this,release));
                 }catch(Exception ex){status=Errors.message(ex);}
             },minecraft);
