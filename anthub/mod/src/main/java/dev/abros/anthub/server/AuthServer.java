@@ -40,6 +40,11 @@ public final class AuthServer {
     private static final Map<Connection,Session> SESSIONS=new ConcurrentHashMap<>();
     private static volatile AuthStore store;private static AuthTls.Identity identity;private static MinecraftServer server;private static Path root;private static volatile String mode="false";private static long lastCheck;
     private static volatile ServerIdentities identities;
+    /** Cache lookups also serve synthetic mod profiles; only player profiles are remapped. */
+    public static com.mojang.authlib.GameProfile lookupProfile(com.mojang.authlib.GameProfile original){
+        if(original==null||original.getId()==null||!AuthStore.validName(original.getName()))return original;
+        return profile(original);
+    }
     public static com.mojang.authlib.GameProfile profile(com.mojang.authlib.GameProfile original){
         return profile(original,null);
     }

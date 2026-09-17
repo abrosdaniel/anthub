@@ -25,7 +25,8 @@ public final class AuthStore implements AutoCloseable {
         try{return database.transaction(()->{database.lock("auth:"+name.toLowerCase(Locale.ROOT));return work.run();});}
         catch(RejectedCredential ex){if(database.inTransaction())throw ex;failure(ex.name,ex.now);throw new IllegalArgumentException(ex.getMessage());}
     }
-    public static String name(String name){if(!name.matches("[A-Za-z0-9_]{1,16}"))throw new IllegalArgumentException("Invalid player name");return name;}
+    public static boolean validName(String name){return name!=null&&name.matches("[A-Za-z0-9_]{1,16}");}
+    public static String name(String name){if(!validName(name))throw new IllegalArgumentException("Invalid player name");return name;}
     private int update(String sql,Object...args)throws Exception{try(var s=connection().prepareStatement(sql)){bind(s,args);return s.executeUpdate();}}
     private static void bind(PreparedStatement s,Object...args)throws Exception{for(int i=0;i<args.length;i++)s.setObject(i+1,args[i]);}
     public Account account(String name)throws Exception{return run(name,()->{

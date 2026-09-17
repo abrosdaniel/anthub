@@ -12,10 +12,10 @@ abstract class ProfileLookupMixin {
  @Inject(method="get(Ljava/lang/String;)Ljava/util/Optional;",at=@At("HEAD"),cancellable=true)
  private void anthub$lookup(String name,CallbackInfoReturnable<Optional<GameProfile>> cir){
   var server=net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
-  if(AuthServer.enabled()&&server!=null&&!server.usesAuthentication()&&name.matches("[A-Za-z0-9_]{1,16}"))cir.setReturnValue(Optional.of(AuthServer.profile(net.minecraft.core.UUIDUtil.createOfflineProfile(name))));
+  if(AuthServer.enabled()&&server!=null&&!server.usesAuthentication()&&dev.abros.anthub.core.auth.AuthStore.validName(name))cir.setReturnValue(Optional.of(AuthServer.profile(net.minecraft.core.UUIDUtil.createOfflineProfile(name))));
  }
  @Inject(method="get(Ljava/lang/String;)Ljava/util/Optional;",at=@At("RETURN"),cancellable=true)
  private void anthub$verifiedLookup(String name,CallbackInfoReturnable<Optional<GameProfile>> cir){
-  if(AuthServer.enabled())cir.setReturnValue(cir.getReturnValue().map(AuthServer::profile));
+  if(AuthServer.enabled())cir.setReturnValue(cir.getReturnValue().map(AuthServer::lookupProfile));
  }
 }
