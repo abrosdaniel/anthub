@@ -31,8 +31,20 @@ final class PlayerActionsScreen extends ScrollScreen {
   minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(this);if(yes){ServerMenuClient.result="";ServerMenuClient.request(j);}},Client.tr("server.command."+action),summary));
  }
  @Override public void tick(){if(!ServerMenuClient.available()){minecraft.setScreen(null);return;}boolean reset=ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean();if(reset!=resetPermission||ServerMenuClient.state.has("actions")&&!actions.equals(ServerMenuClient.state.getAsJsonArray("actions")))rebuildWidgets();}
- @Override public void renderBackground(GuiGraphics g,int x,int y,float d){if(parent!=null)parent.render(g,-1,-1,d);g.fill(0,0,width,height,0xBB090E14);int w=Math.min(520,width-24),left=(width-w)/2;g.fill(left,6,left+w,height-8,0xF51B252E);}
- @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawCenteredString(font,title,width/2,16,0xE2BE75);g.drawCenteredString(font,Component.literal(player.has("online")&&player.get("online").getAsBoolean()?"В сети":"Не в сети"),width/2,30,0xAAAAAA);for(int i=firstRow;i<Math.min(rows.size(),firstRow+visibleRows);i++)if(rows.get(i).label.equals("minutes"))g.drawString(font,Client.tr("server.muteMinutes"),(width-Math.min(500,width-40))/2+78,50+(i-firstRow)*30,0xEEEEEE);Ui.status(g,font,status.isEmpty()?ServerMenuClient.result:status,20,height-55,width-40,height-30);}
+ @Override public void renderBackground(GuiGraphics g,int x,int y,float d){g.fill(0,0,width,height,0xBB090E14);int w=Math.min(520,width-24),left=(width-w)/2;g.fill(left,6,left+w,height-8,0xF51B252E);}
+ @Override public void render(GuiGraphics g,int x,int y,float d){
+  if(parent!=null){if(parent.width!=width||parent.height!=height)parent.resize(minecraft,width,height);parent.render(g,-10000,-10000,d);}
+  g.flush();g.pose().pushPose();
+  try{
+   g.pose().translate(0,0,400);super.render(g,x,y,d);
+   var heading=net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(title,Math.min(500,width-40)));
+   g.drawString(font,heading,(width-font.width(heading))/2,16,0xE2BE75);
+   g.drawCenteredString(font,Component.literal(player.has("online")&&player.get("online").getAsBoolean()?"В сети":"Не в сети"),width/2,30,0xAAAAAA);
+   for(int i=firstRow;i<Math.min(rows.size(),firstRow+visibleRows);i++)if(rows.get(i).label.equals("minutes"))g.drawString(font,Client.tr("server.muteMinutes"),(width-Math.min(500,width-40))/2+78,50+(i-firstRow)*30,0xEEEEEE);
+   Ui.status(g,font,status.isEmpty()?ServerMenuClient.result:status,(width-Math.min(500,width-40))/2,height-55,Math.min(500,width-40),height-30);
+   g.flush();
+  }finally{g.pose().popPose();}
+ }
  @Override public boolean isPauseScreen(){return false;}
  @Override public void onClose(){if(parent instanceof FeatureListScreen screen)screen.invalidate();minecraft.setScreen(parent);}
 }
