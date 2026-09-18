@@ -13,6 +13,11 @@ public final class Selection {
     }
     private void visit(String id,Set<String> visiting,Set<String> done){if(done.contains(id))return;if(!visiting.add(id))throw new IllegalArgumentException("Dependency cycle: "+id);for(String d:components.get(id).dependencies())visit(d,visiting,done);visiting.remove(id);done.add(id);}
     public Set<String> initial(){Set<String>s=new LinkedHashSet<>();s.addAll(resolve(Set.of()));for(var c:components.values()){var candidate=new LinkedHashSet<>(s);candidate.add(c.id());try{s=new LinkedHashSet<>(resolve(candidate));}catch(IllegalArgumentException conflict){/* Conflicting alternatives remain available for manual selection. */}}return resolve(s);}
+    /** Apply saved preferences to the current pack, then enforce its requirements. */
+    public Set<String> restore(Set<String> saved){
+        Set<String> retained=new HashSet<>(saved);retained.retainAll(components.keySet());
+        return resolve(retained);
+    }
     public Set<String> resolve(Set<String> chosen){
         Set<String>s=new TreeSet<>(chosen);components.values().stream().filter(c->c.kind().equals("required")).forEach(c->s.add(c.id()));
         Deque<String> q=new ArrayDeque<>(s);while(!q.isEmpty()){String id=q.remove();var c=components.get(id);if(c==null)throw new IllegalArgumentException("Unknown component: "+id);for(String d:c.dependencies())if(s.add(d))q.add(d);}

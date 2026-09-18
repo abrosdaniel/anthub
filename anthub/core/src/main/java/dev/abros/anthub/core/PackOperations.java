@@ -35,7 +35,7 @@ public final class PackOperations {
             }
             Planner.Plan plan=hub.plan(release,snapshot,replacements,kept);
             if(!plan.conflicts().isEmpty())throw new IllegalStateException(String.join("\n",plan.conflicts()));
-            return new Review(release,snapshot,Set.copyOf(replacements),Set.copyOf(kept),Map.copyOf(observed),plan);
+            return new Review(release,resolved,Set.copyOf(replacements),Set.copyOf(kept),Map.copyOf(observed),plan);
         });
     }
     public CompletableFuture<String> compare(Review review,String path,AtomicBoolean cancelled){return submit(cancelled,()->{

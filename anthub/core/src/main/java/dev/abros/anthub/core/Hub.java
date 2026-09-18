@@ -36,7 +36,19 @@ public final class Hub {
 
     public String incompatibility(Manifest m){if(!m.minecraft().equals("1.21.1"))return "Minecraft "+m.minecraft();if(!m.neoForge().equals(neoVersion))return "NeoForge "+m.neoForge();if(!Versions.supportsBranch(coreVersion,m.anthubVersion()))return "AntHub "+m.anthubVersion();return "";}
     private synchronized Map<String,Planner.Owned> owned(){return state.has("ownership")?Json.GSON.fromJson(state.get("ownership"),new TypeToken<Map<String,Planner.Owned>>(){}.getType()):Map.of();}
-    public synchronized Set<String> choices(Manifest m){if(state.has("selection")&&active()!=null&&active().projectKey().equals(m.projectKey()))return Json.GSON.fromJson(state.get("selection"),new TypeToken<Set<String>>(){}.getType());try{Path saved=game.resolve("anthub/projects").resolve(m.projectKey()).resolve("local-state.json");if(Files.exists(saved)){var savedState=Json.read(saved);Set<String> choices=Json.GSON.fromJson(savedState.get("selection"),new TypeToken<Set<String>>(){}.getType());Set<String> valid=new HashSet<>();for(var c:m.components())if(choices.contains(c.id()))valid.add(c.id());return new Selection(m).resolve(valid);}}catch(Exception ignored){}return new Selection(m).initial();}
+    public synchronized Set<String> choices(Manifest m){
+        var selection=new Selection(m);
+        if(state.has("selection")&&active()!=null&&active().projectKey().equals(m.projectKey())){
+            Set<String> saved=Json.GSON.fromJson(state.get("selection"),new TypeToken<Set<String>>(){}.getType());
+            if(saved!=null)return selection.restore(saved);
+        }
+        Set<String> saved=null;
+        try{
+            Path path=game.resolve("anthub/projects").resolve(m.projectKey()).resolve("local-state.json");
+            if(Files.exists(path))saved=Json.GSON.fromJson(Json.read(path).get("selection"),new TypeToken<Set<String>>(){}.getType());
+        }catch(IOException|com.google.gson.JsonParseException ignored){}
+        return saved==null?selection.initial():selection.restore(saved);
+    }
     public Planner.Plan plan(RepositoryClient.Release release,Set<String> selection)throws IOException{return plan(release,selection,false);}
     public Planner.Plan plan(RepositoryClient.Release release,Set<String> selection,boolean backupModified)throws IOException{String incompatible=incompatibility(release.manifest());if(!incompatible.isEmpty())throw new IOException("Requires "+incompatible);return Planner.plan(game,withLocalConfig(release.manifest()),selection,owned(),cache,backupModified);}
 
