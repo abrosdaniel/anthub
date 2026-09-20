@@ -58,4 +58,31 @@ class SelectionUpdateTest {
         assertEquals(review.selection(),review.plan().selection());
         assertTrue(review.plan().changes().stream().anyMatch(c->c.path().equals("mods/jade.jar")));
     }
+    @Test void oldManifestDoesNotBlockHubAndPreservesChoices() throws Exception {
+        var hub=installed();var state=hub.state();state.getAsJsonObject("lock").getAsJsonObject("anthub").remove("version");
+        Json.write(game.resolve("anthub/state.json"),state);byte[] original=Files.readAllBytes(game.resolve("anthub/state.json"));
+        hub=new Hub(game,"1.0.0","21.1.250");assertNull(hub.active());assertFalse(hub.recoveryMessage().isEmpty());
+        assertEquals(Set.of("jade","library","kept"),hub.choices(pack(true)));
+        assertArrayEquals(original,Files.readAllBytes(game.resolve("anthub/state.json")));
+        try(var backups=Files.list(game.resolve("anthub/recovery"))){assertEquals(1,backups.count());}
+    }
+    @Test void unreadableStateBlocksInstallationButNotCatalog() throws Exception {
+        Files.createDirectories(game.resolve("anthub"));Files.writeString(game.resolve("anthub/state.json"),"{broken");
+        var hub=new Hub(game,"1.0.0","21.1.250");assertFalse(hub.recoveryMessage().isEmpty());
+        hub.saveRepository("https://github.com/example/project");assertEquals(1,hub.saved().size());
+        var release=new RepositoryClient.Release(pack(true),new byte[0],false,false,"");
+        assertThrows(java.io.IOException.class,()->hub.plan(release,Set.of()));
+        assertThrows(java.io.IOException.class,hub::clearUnusedCache);
+        assertEquals("{broken",Files.readString(game.resolve("anthub/state.json")));
+    }
+    @Test void oneInvalidSavedRepositoryDoesNotBlockOthers() throws Exception {
+        Json.write(game.resolve("anthub/preferences.json"),Map.of("repositories",List.of("not a repository","https://github.com/example/project")));
+        var hub=new Hub(game,"1.0.0","21.1.250");assertEquals(List.of("https://github.com/example/project"),hub.saved());
+    }
+    @Test void summaryExplainsPromotionWithoutChangingSeed() throws Exception {
+        var summary=PackSummary.compare(pack(false),pack(true));assertEquals(List.of("jade"),summary.required());
+        assertEquals("Обязательный для сервера",PackSummary.lockedReason(pack(true),"jade"));
+        assertEquals("Нужен для: jade",PackSummary.lockedReason(pack(true),"library"));
+        assertEquals("",PackSummary.lockedReason(pack(true),"kept"));
+    }
 }

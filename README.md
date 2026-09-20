@@ -135,7 +135,7 @@
 
 ### PostgreSQL
 
-Создайте базу и пользователя для AntHub. Пользователю нужны права на подключение и создание таблиц в схеме `anthub`. Например, администратор базы может выполнить внутри созданной базы:
+Для первой установки создайте базу и пользователя для AntHub. При обновлении повторять эти команды не нужно. Пользователю нужны права на подключение и создание таблиц в схеме `anthub`. Например, администратор базы может выполнить внутри созданной базы:
 
 ```sql
 CREATE ROLE anthub LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
@@ -144,22 +144,22 @@ GRANT CONNECT ON DATABASE anthub TO anthub;
 CREATE SCHEMA anthub AUTHORIZATION anthub;
 ```
 
-Команда `\password` запросит пароль дважды. На сервере в `config/anthub-database.properties` укажите:
+Команда `\password` запросит пароль дважды. Скопируйте [полный шаблон серверного конфига](anthub/core/src/main/resources/anthub-server.toml) в `config/anthub-server.toml` и заполните раздел:
 
-```properties
-host=ИМЯ_ХОСТА
-port=ПОРТ_ХОСТА
-database=anthub
-username=anthub
-password=ПАРОЛЬ_ПОЛЬЗОВАТЕЛЯ
-passwordEnvironment=
-passwordFile=
-poolSize=8
-sslMode=disable
-sslRootCert=
+```toml
+[database]
+host = "ИМЯ_ХОСТА"
+port = 5432
+database = "anthub"
+username = "anthub"
+password = 'ПАРОЛЬ_ПОЛЬЗОВАТЕЛЯ'
+passwordEnvironment = ""
+poolSize = 8
+sslMode = "disable"
+sslRootCert = ""
 ```
 
-Пароль в `.properties` указывается **без кавычек**. Вместо хранения пароля здесь можно задать `passwordEnvironment=ANTHUB_DB_PASSWORD` и передать переменную окружения серверу.
+Пароль в TOML пишется **в кавычках**. Для переменной окружения укажите `passwordEnvironment = "ANTHUB_DB_PASSWORD"`; она должна быть задана у процесса игры. Пустое имя означает использование `password`.
 
 `sslMode=disable` подходит для доверенной внутренней сети. Для подключения через внешнюю сеть используйте `sslMode=verify-full` и укажите путь к корневому сертификату в `sslRootCert`. В Docker контейнер Minecraft должен иметь доступ к сети базы; публиковать порт PostgreSQL в интернет не требуется.
 

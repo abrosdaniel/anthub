@@ -25,6 +25,7 @@ final class ServerUpdateNotice {
 
     private static synchronized void start(ServerStartedEvent event) {
         stopWorker();
+        if(!ServerDatabase.settings().flag("updates.notifyConsole"))return;
         var updater = new CoreUpdater(new Remote());
         var announced = new HashSet<String>();
         String running = AntHub.VERSION;

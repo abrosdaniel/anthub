@@ -58,4 +58,16 @@ class PostgresConcurrencyTest {
         assertEquals(0,pool.activeConnections());System.out.printf("24 password logins / 4 workers: %.0f ms%n",(System.nanoTime()-start)/1e6);
     }
 
+    @Test void largePeopleListUsesBoundedPagesAndOneStatisticsBatch()throws Exception{
+        pool.transaction(()->{try(var q=pool.connection().prepareStatement("INSERT INTO people(id,name,seen,role) SELECT md5(i::text)::uuid::text,'Player'||lpad(i::text,5,'0'),i,'player' FROM generate_series(1,10000) i")){q.executeUpdate();}return null;});
+        long began=System.nanoTime();var page=store.people("Player",0);assertTrue(page.size()<=20);assertFalse(page.isEmpty());
+        var ids=page.asList().stream().map(p->UUID.fromString(Json.str(p.getAsJsonObject(),"uuid"))).toList();new PlayerStatistics(pool,PlayerStatistics.Settings.defaults()).read(ids,Map.of());
+        System.out.printf("10,000-player list first page + statistics batch: %.1f ms%n",(System.nanoTime()-began)/1e6);assertEquals(0,pool.activeConnections());
+    }
+    @Test void slowDatabaseQueryTimesOutAndReleasesItsConnection()throws Exception{
+        long began=System.nanoTime();assertThrows(java.sql.SQLException.class,()->pool.communityTransaction(()->{try(var q=pool.connection().createStatement()){q.execute("SELECT pg_sleep(7)");}return null;}));
+        long millis=TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-began);assertTrue(millis<10000,"Query must be bounded by statement timeout");
+        assertEquals(0,pool.activeConnections());assertEquals(1,pool.transaction(()->{try(var q=pool.connection().createStatement();var r=q.executeQuery("SELECT 1")){r.next();return r.getInt(1);}}));System.out.printf("Slow query cancelled and connection recovered: %d ms%n",millis);
+    }
+
 }

@@ -15,7 +15,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
-import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.*;
 import net.neoforged.neoforge.network.configuration.ICustomConfigurationTask;
 import net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent;
@@ -26,11 +25,6 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
 public final class AuthServer {
-    private static final ModConfigSpec.Builder B=new ModConfigSpec.Builder();
-    private static final ModConfigSpec.ConfigValue<String> MODE=B.comment("Режимы base и hybrid требуют настроенную и доступную PostgreSQL (config/anthub-database.properties).", "Если настройки подключения отсутствуют или база недоступна, запуск сервера будет остановлен с ошибкой в консоли.", "Автоматического переключения в false нет. База также требуется серверным функциям при mode=false. См. README, раздел PostgreSQL.").define("mode","false",v->v instanceof String s&&Set.of("false","base","hybrid").contains(s));
-    private static final ModConfigSpec.BooleanValue REGISTRATION=B.define("allowRegistration",true);
-    private static final ModConfigSpec.IntValue MINIMUM_PASSWORD_LENGTH=B.comment("Минимальная длина нового пароля: регистрация, сброс и смена. Старые пароли продолжают работать. Применяется после перезапуска сервера.").defineInRange("minimumPasswordLength",6,6,128);
-    private static final ModConfigSpec SPEC=B.build();
     private static final ConfigurationTask.Type TASK=new ConfigurationTask.Type(ResourceLocation.fromNamespaceAndPath("anthub","auth"));
     private static final ThreadPoolExecutor WORK=new ThreadPoolExecutor(4,4,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(64),r->{var t=new Thread(r,"AntHub auth");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
     private static final ExecutorService OFFICIAL=new ThreadPoolExecutor(2,2,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(16),r->{var t=new Thread(r,"AntHub official verification");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
@@ -55,18 +49,18 @@ public final class AuthServer {
     private static void remember(AuthStore.Account account){identities.remember(new AuthStore.Profile(account.name(),UUID.fromString(account.uuid()),account.official()==null?null:UUID.fromString(account.official())));}
     public static boolean enabled(){return !mode.equals("false");}
     public static void install(IEventBus bus,ModContainer container){
-        container.registerConfig(ModConfig.Type.COMMON,SPEC,"anthub-auth.toml");bus.addListener(AuthServer::tasks);AuthProtocol.server=AuthServer::receive;AuthProtocol.upgrade=AuthServer::upgrade;
+        bus.addListener(AuthServer::tasks);AuthProtocol.server=AuthServer::receive;AuthProtocol.upgrade=AuthServer::upgrade;
         NeoForge.EVENT_BUS.addListener(AuthServer::start);NeoForge.EVENT_BUS.addListener(AuthServer::tick);NeoForge.EVENT_BUS.addListener(AuthServer::commands);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent e)->{SESSIONS.values().forEach(Session::close);SESSIONS.clear();store=null;identity=null;identities=null;mode="false";});
     }
     private static void start(net.neoforged.neoforge.event.server.ServerStartingEvent e){
         server=e.getServer();mode="false";store=null;identity=null;lastCheck=0;
-        String requestedMode=MODE.get();if(requestedMode.equals("false"))return;
+        String requestedMode=ServerDatabase.settings().text("auth.mode");if(requestedMode.equals("false"))return;
         var database=ServerDatabase.get();
         if(ModList.get().isLoaded("authlogic"))throw new IllegalStateException("Remove AuthLogic before enabling AntHub Auth");
         root=net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
         try{
-            store=new AuthStore(database,MINIMUM_PASSWORD_LENGTH.get());identities=new ServerIdentities(store.profiles());identity=AuthTls.identity(root.resolve("anthub"));mode=requestedMode;
+            store=new AuthStore(database,ServerDatabase.settings().number("auth.minimumPasswordLength"));identities=new ServerIdentities(store.profiles());identity=AuthTls.identity(root.resolve("anthub"));mode=requestedMode;
             com.mojang.logging.LogUtils.getLogger().info("AntHub Auth TLS fingerprint: {}",identity.fingerprint());
         }catch(Exception ex){throw new IllegalStateException("Cannot initialize AntHub Auth; startup aborted",ex);}
     }
@@ -108,7 +102,7 @@ public final class AuthServer {
         final AuthTls.Tunnel tunnel;volatile AuthStore.Account account;volatile boolean joined,transportReady;boolean upgrading;boolean offered,resetAllowed;volatile String device="";long window;int packets,attempts;long lastAction;
         Session(ServerConfigurationPacketListenerImpl listener)throws Exception{this.listener=listener;connection=listener.getConnection();name=AuthStore.name(listener.getOwner().getName());uuid=listener.getOwner().getId().toString();tunnel=new AuthTls.Tunnel(identity.context(),false,b->connection.send(new ClientboundCustomPayloadPacket(new AuthProtocol.ToClient(b))),this::message);}
         void send(JsonObject j)throws Exception{tunnel.send(Json.GSON.toJson(j));}
-        void offer()throws Exception{var j=result("offer","");j.addProperty("mode",mode);j.addProperty("name",name);j.addProperty("challenge",challenge);var a=database.account(name);j.addProperty("type",a==null?"new":a.type());j.addProperty("linked",a!=null&&a.official()!=null);j.addProperty("registration",REGISTRATION.get());j.addProperty("minimumPasswordLength",database.minimumPasswordLength());send(j);}
+        void offer()throws Exception{var j=result("offer","");j.addProperty("mode",mode);j.addProperty("name",name);j.addProperty("challenge",challenge);var a=database.account(name);j.addProperty("type",a==null?"new":a.type());j.addProperty("linked",a!=null&&a.official()!=null);j.addProperty("registration",ServerDatabase.settings().flag("auth.allowRegistration"));j.addProperty("minimumPasswordLength",database.minimumPasswordLength());send(j);}
         void message(String json){message(json,null);}
         void message(String json,String verified){try{
             var j=Json.parse(json);String action=Json.str(j,"action");long now=System.currentTimeMillis();
@@ -124,7 +118,7 @@ public final class AuthServer {
                 if(account!=null)throw new IllegalArgumentException("Ожидается подтверждение входа");if(verified==null){if(++attempts>10){disconnect("Слишком много попыток входа");return;}database.checkRate(name,now);}
                 switch(action){
                     case "login" -> account=withPassword(j,"password",p->database.login(name,uuid,p,now));
-                    case "register" -> {if(!REGISTRATION.get())throw new IllegalArgumentException("Регистрация закрыта. Обратитесь к администратору");account=withPassword(j,"password",p->database.register(name,uuid,p,now));}
+                    case "register" -> {if(!ServerDatabase.settings().flag("auth.allowRegistration"))throw new IllegalArgumentException("Регистрация закрыта. Обратитесь к администратору");account=withPassword(j,"password",p->database.register(name,uuid,p,now));}
                     case "device" -> {String token=Json.str(j,"token");account=database.deviceLogin(name,uuid,token,now);device=database.deviceId(name,token);}
                     case "official" -> {
                         if(!mode.equals("hybrid"))throw new IllegalArgumentException("Официальный вход недоступен");

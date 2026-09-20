@@ -29,7 +29,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
     private int panelWidth() { return Math.min(410, width - 24); }
 
     @Override protected void init() {
-        if(parent!=null&&(parent.width!=width||parent.height!=height))parent.resize(minecraft,width,height);
+        ModalLayer.prepare(parent,this);
         int x = left(), w = panelWidth(), y = top();
         scrollArea(entries.size(), y + 40, bottom() - 86, 36, x + w - 10);
         for (int i = firstRow; i < Math.min(entries.size(), firstRow + visibleRows); i++) {
@@ -126,17 +126,11 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
         g.renderOutline(left(), top(), panelWidth(), bottom() - top(), 0xFF536879);
     }
     @Override public void render(GuiGraphics g, int x, int y, float d) {
-        // Finish the underlying menu's batches before drawing a separate foreground layer.
-        if(parent!=null)parent.render(g,-10000,-10000,d);
-        g.flush();
-        g.pose().pushPose();
-        try {
-            g.pose().translate(0,0,400);
+        ModalLayer.render(parent,this,g,d,()->{
             super.render(g,x,y,d);
             g.drawCenteredString(font,title,width/2,top()+10,0xE2BE75);
-            if(!status.isEmpty()||busy)g.drawString(font,font.plainSubstrByWidth(busy?"Обновление…":status,panelWidth()-24),left()+12,top()+25,0xBAC7D2);
-            g.flush();
-        } finally { g.pose().popPose(); }
+            if(!status.isEmpty()||busy)g.drawString(font,font.plainSubstrByWidth(busy?"Обновление…":status,panelWidth()-24),left()+12,top()+25,AccessibilityScreen.foreground(0xBAC7D2));
+        });
     }
     @Override public void onClose() { if(parent instanceof CommunityScreen screen)screen.invalidate();else if(parent instanceof FeatureListScreen screen)screen.invalidate();minecraft.setScreen(parent); }
     @Override public boolean isPauseScreen() { return false; }

@@ -13,3 +13,6 @@ tasks.register('postgresTest', Test) {
     outputs.upToDateWhen { false }
 }
 if (project.hasProperty('postgresTests')) tasks.named('check') { dependsOn 'postgresTest' }
+
+// NeoForge provides NightConfig at runtime; standalone core tests need the parser.
+dependencies { compileOnly 'com.electronwill.night-config:toml:3.8.3'; testImplementation 'com.electronwill.night-config:toml:3.8.3' }

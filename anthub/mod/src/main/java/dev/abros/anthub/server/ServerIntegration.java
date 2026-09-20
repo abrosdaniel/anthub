@@ -10,8 +10,6 @@ import net.minecraft.server.network.ConfigurationTask;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.configuration.ICustomConfigurationTask;
 import net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent;
@@ -20,13 +18,6 @@ import java.util.concurrent.*;
 import java.util.function.Consumer;
 
 public final class ServerIntegration {
-    private static final ModConfigSpec.Builder B=new ModConfigSpec.Builder();
-    private static final ModConfigSpec.ConfigValue<String> PROJECT=B.comment("Публичный GitHub-репозиторий проекта. Применяется после перезапуска сервера.").define("project","");
-    private static final ModConfigSpec.BooleanValue REQUIRE=B.comment("Требовать AntHub и опубликованную сборку проекта. Требования загружаются при запуске и фиксируются до перезапуска.","При недоступном GitHub используется проверенный кэш; без него запуск будет остановлен.","false отключает проверку сборки, но не отдельный модуль Auth.").define("requireProjectPack",false);
-    private static final ModConfigSpec.BooleanValue LUCKPERMS=B.define("luckperms",false);
-    private static final ModConfigSpec.IntValue TIMEOUT=B.comment("Ожидание ответа клиента при проверке сборки, в секундах.").defineInRange("handshakeTimeoutSeconds",10,3,60);
-    private static final ModConfigSpec.ConfigValue<String> HELP=B.define("helpText","Use /ah to open the menu. Contact the server administrator for help.",value->value instanceof String text&&text.length()<=2000);
-    private static final ModConfigSpec SPEC=B.build();
     private static volatile ServerProjectPolicy policy;
     private static final ConfigurationTask.Type TYPE=new ConfigurationTask.Type(ResourceLocation.fromNamespaceAndPath("anthub","verify_pack"));
     private record Pending(String nonce,ServerProjectPolicy policy){}
@@ -37,7 +28,6 @@ public final class ServerIntegration {
     public static void install(IEventBus bus,ModContainer container){
         bus.addListener(ServerIntegration::tasks);
         ServerDatabase.install();AuthServer.install(bus,container);ServerFeatures.install();ServerUpdateNotice.install();
-        container.registerConfig(ModConfig.Type.COMMON,SPEC,"anthub-server.toml");
         NeoForge.EVENT_BUS.addListener(ServerIntegration::starting);
         NeoForge.EVENT_BUS.addListener(ServerIntegration::commands);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent event)->{policy=null;NONCES.clear();FEATURES.clear();});
@@ -48,7 +38,7 @@ public final class ServerIntegration {
         try {
             var root=net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().toAbsolutePath().normalize();
             var remote=new Remote();remote.cacheMetadata(root.resolve("anthub/cache/http"));
-            policy=ServerProjectPolicy.load(new RepositoryClient(root,remote),PROJECT.get(),REQUIRE.get());
+            policy=ServerProjectPolicy.load(new RepositoryClient(root,remote),ServerDatabase.settings().text("project.repository"),ServerDatabase.settings().flag("project.requireProjectPack"));
             if(policy.release()!=null&&!Versions.supportsBranch(dev.abros.anthub.AntHub.VERSION,policy.requiredAntHubVersion())){
                 com.mojang.logging.LogUtils.getLogger().error("AntHub: проект требует версию {}, на сервере установлена {}. Установите указанную версию AntHub или исправьте anthubVersion в проекте.",policy.requiredAntHubVersion(),dev.abros.anthub.AntHub.VERSION);
                 throw new IllegalStateException("Ветка AntHub сервера не совпадает с anthubVersion проекта");
@@ -61,8 +51,8 @@ public final class ServerIntegration {
             throw new IllegalStateException("AntHub: проверьте project и requireProjectPack в config/anthub-server.toml. "+failure.getMessage(),failure);
         }
     }
-    public static boolean luckPermsEnabled(){return LUCKPERMS.get();}
-    public static String helpText(){return HELP.get();}
+    public static boolean luckPermsEnabled(){return ServerDatabase.settings().flag("integrations.luckperms");}
+    public static String helpText(){return ServerDatabase.settings().text("menu.helpText");}
     public static String project(){var current=policy;return current==null?"":current.repository();}
     public static String packVersion(){var current=policy;return current==null?"":current.version();}
     public static String requiredHash(){var current=policy;return current==null||!current.required()?"":current.hash();}
@@ -93,7 +83,7 @@ public final class ServerIntegration {
             public ConfigurationTask.Type type(){return TYPE;}
             public void run(Consumer<CustomPacketPayload> sender){
                 NONCES.put(listener,pending);JsonObject hello=new JsonObject();hello.addProperty("coreVersion",dev.abros.anthub.AntHub.VERSION);hello.add("protocols",WireProtocols.current());hello.add("features",ConnectionCompatibility.features());hello.addProperty("protocolVersion",WireProtocols.version("pack"));hello.addProperty("nonce",pending.nonce());hello.addProperty("repository",current.repository());hello.addProperty("serverId",current.serverId());hello.addProperty("requiredVersion",current.version());hello.addProperty("requiredLockSha256",current.hash());sender.accept(new Protocol.Hello(Json.GSON.toJson(hello)));
-                CompletableFuture.delayedExecutor(TIMEOUT.get(),TimeUnit.SECONDS).execute(()->{if(server!=null)server.execute(()->{if(NONCES.remove(listener,pending))listener.disconnect(Component.literal("AntHub: handshake timeout"));});});
+                CompletableFuture.delayedExecutor(ServerDatabase.settings().number("connection.handshakeTimeoutSeconds"),TimeUnit.SECONDS).execute(()->{if(server!=null)server.execute(()->{if(NONCES.remove(listener,pending))listener.disconnect(Component.literal("AntHub: handshake timeout"));});});
             }
         });
     }

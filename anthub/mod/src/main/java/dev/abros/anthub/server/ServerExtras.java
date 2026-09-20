@@ -10,15 +10,11 @@ import java.util.*;
 
 /** Server-owned menu data and permission-preserving moderation. */
 final class ServerExtras {
-    private static Path directory;private static dev.abros.anthub.core.CommunityStore database;
+    private static dev.abros.anthub.core.CommunityStore database;
     private static JsonObject menu=new JsonObject();
-    static void start(Path root,dev.abros.anthub.core.CommunityStore db)throws Exception{directory=root;database=db;reload();}
+    static void start(Path root,dev.abros.anthub.core.CommunityStore db)throws Exception{database=db;reload();}
     static void reload()throws Exception{
-        Path path=directory.resolve("server-menu.json");
-        if(Files.isSymbolicLink(path))throw new IllegalArgumentException("Unsafe menu path");
-        if(!Files.exists(path)){var empty=new JsonObject();empty.add("links",new JsonArray());Json.write(path,empty);}
-        if(Files.size(path)>16000)throw new IllegalArgumentException("Menu data too large");
-        menu=dev.abros.anthub.core.ServerMenuData.validate(Json.read(path));
+        menu=ServerDatabase.settings().menu();
     }
     static JsonObject menu(){return menu.deepCopy();}
     static JsonArray actions(ServerPlayer p){var result=new JsonArray();for(String action:List.of("tell","kick","ban","pardon","kill","vmute","vunmute")){
@@ -36,16 +32,23 @@ final class ServerExtras {
         String arguments=suffix,actor=p.getGameProfile().getName();var connection=p.connection;var server=p.server;
         var node=server.getCommands().getDispatcher().getRoot().getChild(action);if(node==null||!node.canUse(p.createCommandSourceStack()))throw new IllegalArgumentException("Command unavailable or permission denied");
         ServerFeatures.storage(()->{try{
-            var receipt=database.receipt(p.getUUID().toString(),j,()->{var claimed=new JsonObject();claimed.addProperty("accepted",true);return claimed;});
+            var entry=new JsonObject();entry.addProperty("uuid",targetId);entry.addProperty("actor",actor);entry.addProperty("action",action);entry.addProperty("reason",reason);entry.addProperty("at",System.currentTimeMillis());entry.addProperty("outcome","Принято, результат ещё не подтверждён");if(action.equals("vmute"))entry.addProperty("durationMinutes",j.get("minutes").getAsInt());
+            String operationId=Json.str(j,"operationId");
+            var receipt=database.receipt(p.getUUID().toString(),j,()->{database.record("moderation-history",operationId,entry);var claimed=new JsonObject();claimed.addProperty("accepted",true);return claimed;});
             if(receipt.has("replayed")){server.execute(()->p.sendSystemMessage(Component.literal("Этот запрос уже принят. Проверьте результат и журнал; повторно он не выполнен.")));return;}
             String name=onlineName==null?database.personName(targetId):onlineName;if(!name.matches("[A-Za-z0-9_]{1,16}"))throw new IllegalArgumentException("Unsupported player name");
             String command=action+" "+name+arguments;audit(actor,"moderation requested",command);
-            server.execute(()->{if(p.connection!=connection||!connection.getConnection().isConnected()||!AuthServer.authenticated(p))return;
+            server.execute(()->{if(p.connection!=connection||!connection.getConnection().isConnected()||!AuthServer.authenticated(p)){finishModeration(operationId,entry,"Отменено: сеанс модератора завершён");return;}
                 var current=server.getCommands().getDispatcher().getRoot().getChild(action);var source=p.createCommandSourceStack();
-                if(current==null||!current.canUse(source)){p.sendSystemMessage(Component.literal("Permission denied"));return;}
-                try{server.getCommands().getDispatcher().execute(command,source);ServerFeatures.storage(()->{try{audit(actor,"moderation dispatched",command);}catch(Exception ex){com.mojang.logging.LogUtils.getLogger().error("Cannot persist moderation audit",ex);}});}catch(Exception ex){p.sendSystemMessage(Component.literal("Moderation command failed; see server feedback"));}
+                if(current==null||!current.canUse(source)){finishModeration(operationId,entry,"Отказ: права изменились");p.sendSystemMessage(Component.literal("Permission denied"));return;}
+                try{int result=server.getCommands().getDispatcher().execute(command,source);finishModeration(operationId,entry,result>0?"Применено":"Команда не подтвердила применение");}catch(Exception ex){finishModeration(operationId,entry,"Ошибка применения");p.sendSystemMessage(Component.literal("Moderation command failed; see server feedback"));}
             });
         }catch(Exception ex){server.execute(()->p.sendSystemMessage(Component.literal("Cannot prepare moderation action; check target and server storage")));}});
+    }
+    private static void finishModeration(String id,JsonObject original,String outcome){
+        var entry=original.deepCopy();entry.addProperty("outcome",outcome);entry.addProperty("finishedAt",System.currentTimeMillis());
+        if(outcome.equals("Применено")&&entry.has("durationMinutes"))entry.addProperty("until",System.currentTimeMillis()+entry.get("durationMinutes").getAsLong()*60000);
+        try{ServerFeatures.storage(()->{try{database.record("moderation-history",id,entry);audit(Json.str(entry,"actor"),"moderation result",Json.str(entry,"action")+" "+Json.str(entry,"uuid")+" · "+outcome);}catch(Exception failure){com.mojang.logging.LogUtils.getLogger().error("AntHub: cannot persist moderation result [{}]",id);}});}catch(java.util.concurrent.RejectedExecutionException busy){com.mojang.logging.LogUtils.getLogger().error("AntHub: moderation result queue is full [{}]",id);}
     }
     static void audit(String actor,String action,String detail)throws Exception{database.audit(actor,action,detail);}
     static JsonArray history(int page)throws Exception{if(page<0||page>100)throw new IllegalArgumentException("Invalid page");var out=new JsonArray();database.recordPage("audit","",page,10).forEach(out::add);return out;}

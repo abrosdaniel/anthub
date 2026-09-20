@@ -1,10 +1,12 @@
 """Publish a seed release. Run trusted tooling with the seed as working directory."""
 import argparse
+import filecmp
 import json
 import os
 import re
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 import anthub
 
@@ -12,6 +14,25 @@ VERSION = re.compile(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)')
 
 def run(*args):
     return subprocess.check_output(args, text=True).strip()
+
+def retry(*args):
+    """Retry only transient failures of repeatable reads and draft uploads."""
+    for attempt in range(4):
+        try:
+            return subprocess.check_output(args, text=True, stderr=subprocess.PIPE).strip()
+        except subprocess.CalledProcessError as failure:
+            detail = failure.stderr or ''
+            transient = bool(re.search(r'HTTP (429|500|502|503|504)\b|connection reset|TLS handshake timeout|i/o timeout|unexpected EOF', detail, re.I))
+            if not transient or attempt == 3:
+                # Do not echo complete command arguments, URLs or environment secrets.
+                raise RuntimeError('GitHub operation failed; the draft remains unpublished. Rerun the original workflow.') from None
+            time.sleep(2 ** attempt)
+
+def upload(assets, tag, repository):
+    # A failed upload does not restart every large asset in the pack.
+    for asset in assets:
+        retry('gh', 'release', 'upload', tag, str(asset), '--repo', repository, '--clobber')
+
 
 def release_version(release):
     tag = release.get('tag_name', '')
@@ -75,12 +96,14 @@ def main():
                 '--title', tag, '--notes', 'AntHub pack '+project['version'], '--draft')
         # Only unpublished drafts may be completed/replaced after interrupted uploads.
         assets = sorted(output.iterdir())
-        run('gh', 'release', 'upload', tag, *map(str, assets), '--repo', repository, '--clobber')
+        upload(assets, tag, repository)
         downloaded = Path(temporary)/'verified'
         downloaded.mkdir()
-        run('gh', 'release', 'download', tag, '--repo', repository, '--dir', str(downloaded))
+        retry('gh', 'release', 'download', tag, '--repo', repository, '--dir', str(downloaded), '--clobber')
+        if {p.name for p in downloaded.iterdir()} != {p.name for p in assets}:
+            raise ValueError('Draft asset set differs from the build; do not publish it')
         for asset in assets:
-            if asset.read_bytes() != (downloaded/asset.name).read_bytes():
+            if not filecmp.cmp(asset, downloaded/asset.name, shallow=False):
                 raise ValueError('Uploaded asset differs: '+asset.name)
         run('gh', 'release', 'edit', tag, '--repo', repository, '--draft=false')
     print('Published https://github.com/'+repository+'/releases/tag/'+tag)

@@ -87,4 +87,9 @@ class DatabaseReliabilityTest {
         } finally { release.countDown();workers.shutdown(); }
         for(var future:futures)future.get(5,java.util.concurrent.TimeUnit.SECONDS);
     }
+    @Test void incompleteHistoryAndMissingColumnsFailWithoutRepairingData()throws Exception{
+        assertThrows(IllegalStateException.class,()->db.transaction(()->{try(var q=db.connection().createStatement()){q.execute("DELETE FROM schema_versions WHERE version=1");}DatabaseMigrations.apply(db);return null;}));
+        assertThrows(SQLException.class,()->db.transaction(()->{try(var q=db.connection().createStatement()){q.execute("ALTER TABLE people RENAME COLUMN name TO broken_name");}DatabaseMigrations.apply(db);return null;}));
+        db.transaction(()->{DatabaseMigrations.apply(db);return null;});
+    }
 }

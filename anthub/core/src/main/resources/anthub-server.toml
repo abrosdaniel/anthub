@@ -1,0 +1,98 @@
+# AntHub: единые настройки сервера. Применяются после полного перезапуска.
+# PostgreSQL обязательна, даже если Auth выключен. Ошибка останавливает запуск.
+# Строки пишутся в кавычках, true/false и числа — без кавычек.
+
+[project]
+# Публичный GitHub-репозиторий семени; пусто — без проекта.
+repository = ""
+# Требовать AntHub и актуальную сборку. Без GitHub нужен проверенный кэш.
+requireProjectPack = false
+
+[connection]
+# Ожидание ответа клиента, секунды. Диапазон: 3–60.
+handshakeTimeoutSeconds = 10
+
+[integrations]
+# Использовать права, префиксы и суффиксы LuckPerms.
+luckperms = false
+
+[auth]
+# "false" — выключен, "base" — пароль, "hybrid" — пароль + официальный аккаунт.
+mode = "false"
+# Разрешить самостоятельную регистрацию.
+allowRegistration = true
+# Минимум для НОВЫХ паролей: 6–128 символов. Старые пароли сохраняются.
+minimumPasswordLength = 6
+
+[database]
+# В Dokploy: Internal Host, контейнер Minecraft должен быть в той же сети.
+host = "127.0.0.1"
+# Диапазон: 1–65535.
+port = 5432
+database = "anthub"
+username = "anthub"
+# Пароль PostgreSQL. Для обратных слешей удобно использовать 'буквальную строку'.
+password = ""
+# Необязательно: имя переменной окружения вместо password.
+# Если указано, переменная ОБЯЗАНА содержать пароль; скрытого fallback нет.
+passwordEnvironment = ""
+# Пул соединений: 2–32.
+poolSize = 8
+# "verify-full" — TLS с проверкой хоста; "disable" — доверенная внутренняя сеть.
+sslMode = "verify-full"
+# Путь к корневому сертификату при необходимости.
+sslRootCert = ""
+
+[statistics]
+# Выключенное поле не собирается и не показывается. История в БД сохраняется.
+firstJoin = true
+lastActivity = true
+# Общее время также используется для допуска к голосованиям о наказании.
+totalPlayTime = true
+currentSession = true
+deaths = true
+
+[moderationVotes]
+# По умолчанию выключены; защищённые игроки не могут быть целью.
+enabled = false
+# Участников без учёта цели: 5–300.
+minimumPlayers = 5
+# Длительность голосования, секунды: 30–600.
+durationSeconds = 120
+# Учтённое время инициатора, минуты: 0–10080.
+minimumPlayMinutes = 120
+# Паузы между голосованиями, минуты: 1–10080.
+initiatorCooldownMinutes = 30
+targetCooldownMinutes = 60
+
+[moderationVotes.actions]
+kick = true
+ban = true
+# Требуется доступная интеграция Plasmo Voice.
+mute = true
+# Длительность наказаний, минуты: 1–1440.
+banMinutes = 30
+muteMinutes = 15
+
+[community]
+# Название раздела, 1–40 символов.
+groupsTitle = "Объединения"
+# Максимум объединений на игрока: 1–20.
+maxMemberships = 3
+# Необязательные категории доски, до 20 уникальных названий по 40 символов.
+categories = []
+# Типы объединений: 1–20 уникальных названий по 40 символов.
+groupTypes = ["Город", "Команда", "Гильдия", "Поселение"]
+# home и notifications обязательны; остальные разделы можно убрать.
+sections = ["home", "players", "board", "groups", "events", "polls", "ideas", "notifications"]
+
+[menu]
+# Текст помощи, до 2000 символов.
+helpText = "Откройте меню командой /ah. За помощью обратитесь к администрации сервера."
+# До 12 ссылок: имя до 60 символов, адрес HTTPS до 512 символов.
+# Пример: links = [{ name = "Сайт", url = "https://example.org" }]
+links = []
+
+[updates]
+# Проверять обновления и сообщать в консоль: при запуске и раз в 6 часов.
+notifyConsole = true

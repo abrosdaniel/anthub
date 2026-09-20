@@ -6,15 +6,16 @@
 
 ## Что потребуется
 
-Одинаковая совместимая версия AntHub на клиенте и сервере и настроенная [PostgreSQL](README.md#postgresql).
+Совместимые версии AntHub одной ветки (`2.x`) на клиенте и сервере и настроенная [PostgreSQL](README.md#postgresql).
 
 <a id="setup"></a>
 
 ## ⚙️ Настройка
 
-В `config/anthub-auth.toml` укажите режим и перезапустите сервер:
+Сначала заполните [полный серверный конфиг](anthub/docs/SERVER_CONFIG.md), включая подключение к PostgreSQL. Затем измените раздел `[auth]` в `config/anthub-server.toml` и перезапустите сервер. Ниже только фрагмент: он не заменяет весь файл.
 
 ```toml
+[auth]
 mode = "hybrid"
 allowRegistration = true
 minimumPasswordLength = 6
@@ -32,6 +33,14 @@ minimumPasswordLength = 6
 
 > [!NOTE]
 > `online-mode` в `server.properties` — отдельная настройка. Для игроков без официального аккаунта требуется `online-mode=false`. При `true` Minecraft сначала проверяет официальный аккаунт. AntHub не меняет это значение.
+
+<a id="account"></a>
+
+## 👤 Аккаунт
+
+В меню AntHub на сервере откройте **Безопасность аккаунта**: здесь можно сменить пароль, посмотреть сохранённые устройства и отозвать их доступ. Пароль относится к аккаунту на этом сервере.
+
+При обновлении сохраните прежний режим `[auth] mode` и файл `anthub/auth-identity.p12`. Удаление старого `config/anthub-auth.toml` после ручной настройки не удаляет аккаунты из базы.
 
 <a id="recovery"></a>
 
@@ -54,7 +63,7 @@ ah auth reset PlayerName
 
 ### Через LuckPerms
 
-Выдайте отдельное право модератору или группе:
+Установите LuckPerms и включите `luckperms = true` в разделе `[integrations]` единого конфига. Выдайте отдельное право модератору или группе:
 
 ```text
 lp group moderator permission set anthub.auth.reset true

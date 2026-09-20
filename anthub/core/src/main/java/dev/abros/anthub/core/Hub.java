@@ -10,6 +10,9 @@ import java.util.function.Consumer;
 public final class Hub {
     public final SharedRequests requests=new SharedRequests();
     public final Path game;public final Remote remote=new Remote();public final RepositoryClient repositories;public final Cache cache;public final ProjectDetails details;
+    private String recovery="";private boolean unreadableState,unreadablePreferences;
+    public String recoveryMessage(){return recovery;}
+    private void writableState()throws IOException{if(unreadableState)throw new IOException(recovery);}
     private Manifest loadedManifest;private Process helperProcess;private String helperTransaction="";
     private final Object coreCatalogLock=new Object(),coreInstallLock=new Object();
     private java.util.List<CoreUpdater.Update> coreCatalog;private long coreCatalogAt;
@@ -17,30 +20,47 @@ public final class Hub {
     public Hub(Path game,String coreVersion,String neoVersion)throws IOException{
         this.game=game.toRealPath();new Transactions(game);this.coreVersion=coreVersion;this.neoVersion=neoVersion;
         remote.cacheMetadata(game.resolve("anthub/cache/http"));repositories=new RepositoryClient(game,remote);cache=new Cache(game,remote);
-        details=new ProjectDetails(game,remote);preferences=load("preferences.json");for(String repo:saved())details.load(repo);state=load("state.json");loadedManifest=state.has("lock")?Manifest.parse(state.getAsJsonObject("lock")):null;
-        String remove=Json.opt(preferences,"removeAfterDeactivation","");if(!remove.isEmpty()&&(active()==null||!active().repository().equals(remove))){removeRepository(remove);preferences.remove("removeAfterDeactivation");persist();}
+        details=new ProjectDetails(game,remote);
+        try{preferences=load("preferences.json");}catch(IOException|RuntimeException bad){preferences=new JsonObject();unreadablePreferences=true;recovery="Не удалось прочитать настройки проектов. Каталог доступен; восстановите anthub/preferences.json из резервной копии перед сохранением изменений.";backup("preferences.json");}
+        for(String repo:saved())details.load(repo);try{state=load("state.json");}catch(IOException|RuntimeException bad){state=new JsonObject();unreadableState=true;recovery="Не удалось прочитать anthub/state.json. Файл сохранён; установка заблокирована, чтобы не потерять учёт файлов. Восстановите его из резервной копии.";}
+        if(state.has("lock"))try{loadedManifest=Manifest.parse(state.getAsJsonObject("lock"));}catch(RuntimeException bad){recovery="Сохранённый манифест проекта несовместим или повреждён. Откройте проект и нажмите «Обновить»: учёт установленных файлов сохранён.";}
+        if(!recovery.isEmpty())backup("state.json");
+        if(!unreadableState)try{owned();}catch(IOException|RuntimeException bad){unreadableState=true;recovery="Повреждён учёт установленных файлов. Каталог доступен; восстановите anthub/state.json из резервной копии перед изменением сборки.";backup("state.json");}
+
+        String remove=Json.opt(preferences,"removeAfterDeactivation","");if(recovery.isEmpty()&&!remove.isEmpty()&&(active()==null||!active().repository().equals(remove))){removeRepository(remove);preferences.remove("removeAfterDeactivation");persist();}
+    }
+    private void backup(String name)throws IOException{
+        Path source=game.resolve("anthub").resolve(name);if(!Files.isRegularFile(source,LinkOption.NOFOLLOW_LINKS))return;
+        Path backup=game.resolve("anthub/recovery").resolve(name+"-"+Hashes.sha256(source)+".json");
+        Files.createDirectories(backup.getParent());if(!Files.exists(backup))Files.copy(source,backup);
     }
     private JsonObject load(String name)throws IOException{Path p=game.resolve("anthub").resolve(name);return Files.exists(p)?Json.read(p):new JsonObject();}
     public synchronized JsonObject state(){return state.deepCopy();}
     public synchronized Manifest active(){return loadedManifest;}
     public synchronized String activeHash(){return Json.opt(state,"lockSha256","");}
-    public synchronized List<String> saved(){List<String> result=new ArrayList<>();if(preferences.has("repositories"))for(var e:preferences.getAsJsonArray("repositories"))result.add(e.getAsString());return result;}
+    public synchronized List<String> saved(){List<String> result=new ArrayList<>();if(preferences.has("repositories")&&preferences.get("repositories").isJsonArray())for(var e:preferences.getAsJsonArray("repositories"))try{result.add(Repositories.normalize(e.getAsString()));}catch(RuntimeException ignored){/* One invalid repository must not block the catalog. */}return result;}
     public synchronized void saveRepository(String repo)throws IOException{List<String> values=new ArrayList<>(saved());repo=Repositories.normalize(repo);if(!values.contains(repo))values.add(repo);preferences.add("repositories",Json.GSON.toJsonTree(values));persist();}
     public synchronized void removeRepository(String repo)throws IOException{if(active()!=null&&active().repository().equals(repo))throw new IOException("Deactivate the active project before removing it");List<String> values=new ArrayList<>(saved());values.remove(repo);if(repo.equals(Json.opt(preferences,"selectedRepository",""))){preferences.remove("selectedRepository");preferences.remove("selectedName");preferences.remove("selectedVersion");}preferences.add("repositories",Json.GSON.toJsonTree(values));persist();}
     public synchronized void removeAfterDeactivation(String repo)throws IOException{preferences.addProperty("removeAfterDeactivation",repo);persist();}
-    private void persist()throws IOException{Json.write(game.resolve("anthub/preferences.json"),preferences);}
+    private void persist()throws IOException{if(unreadablePreferences)throw new IOException(recovery);Json.write(game.resolve("anthub/preferences.json"),preferences);}
     public synchronized Manifest.Server selectedServer(Manifest m){
         if(m.servers().isEmpty())return null;var original=m.servers().getFirst();var current=details.get(m.repository());
         return current==null?original:new Manifest.Server(original.id(),current.name(),current.address());
     }
 
     public String incompatibility(Manifest m){if(!m.minecraft().equals("1.21.1"))return "Minecraft "+m.minecraft();if(!m.neoForge().equals(neoVersion))return "NeoForge "+m.neoForge();if(!Versions.supportsBranch(coreVersion,m.anthubVersion()))return "AntHub "+m.anthubVersion();return "";}
-    private synchronized Map<String,Planner.Owned> owned(){return state.has("ownership")?Json.GSON.fromJson(state.get("ownership"),new TypeToken<Map<String,Planner.Owned>>(){}.getType()):Map.of();}
+    private synchronized Map<String,Planner.Owned> owned()throws IOException{writableState();Map<String,Planner.Owned> result=state.has("ownership")?Json.GSON.fromJson(state.get("ownership"),new TypeToken<Map<String,Planner.Owned>>(){}.getType()):Map.of();
+        if(result==null)throw new IOException("Invalid ownership");
+        for(var entry:result.entrySet()){SafePaths.resolve(game,entry.getKey());var value=entry.getValue();if(value==null||value.hash()==null||!Set.of("enforce","preserve","update").contains(value.policy()))throw new IOException("Invalid ownership");Hashes.check(value.hash());}return result;}
+    private boolean sameSavedProject(Manifest manifest){
+        if(active()!=null)return active().projectKey().equals(manifest.projectKey());
+        try{return state.has("lock")&&Repositories.normalize(Json.str(state.getAsJsonObject("lock").getAsJsonObject("project"),"repository")).equals(manifest.repository());}catch(RuntimeException ignored){return manifest.projectKey().equals(Json.opt(state,"projectKey",""));}
+    }
     public synchronized Set<String> choices(Manifest m){
         var selection=new Selection(m);
-        if(state.has("selection")&&active()!=null&&active().projectKey().equals(m.projectKey())){
-            Set<String> saved=Json.GSON.fromJson(state.get("selection"),new TypeToken<Set<String>>(){}.getType());
-            if(saved!=null)return selection.restore(saved);
+        if(state.has("selection")&&sameSavedProject(m)){
+            try{Set<String> saved=Json.GSON.fromJson(state.get("selection"),new TypeToken<Set<String>>(){}.getType());
+            if(saved!=null)return selection.restore(saved);}catch(JsonParseException|IllegalStateException bad){throw new IllegalArgumentException("Повреждён сохранённый выбор компонентов; восстановите состояние проекта",bad);}
         }
         Set<String> saved=null;
         try{
@@ -85,7 +105,7 @@ public final class Hub {
             if(!f.policy().equals("enforce")&&configs.has(f.path())){String hash=configs.get(f.path()).getAsString();if(!cache.contains(hash))throw new IOException("Saved project configuration missing from cache: "+f.path());files.add(new Manifest.FileEntry(f.componentId(),f.path(),f.version(),f.urls(),hash,Files.size(cache.path(hash)),"preserve"));}else files.add(f);
         }return new Manifest(target.json(),target.repository(),target.id(),target.name(),target.version(),target.minecraft(),target.neoForge(),target.anthubVersion(),target.components(),files,target.servers());
     }
-    public synchronized String deactivate()throws Exception{
+    public synchronized String deactivate()throws Exception{writableState();
         if(active()==null)throw new IOException("No active project");if(helperProcess!=null&&helperProcess.isAlive())throw new IOException("An update is already pending");saveLocalState();List<Planner.Change> changes=new ArrayList<>();
         for(var e:owned().entrySet()){String current=Planner.hash(SafePaths.resolve(game,e.getKey()));if(current!=null)changes.add(new Planner.Change(e.getKey(),current,null));}
         String id=UUID.randomUUID().toString();var plan=new Planner.Plan(id,"deactivate",changes,Map.of(),Set.of(),List.of(),0);new Transactions(game).prepare(plan,new byte[0],new JsonObject());startHelper(id);return id;
@@ -98,7 +118,7 @@ public final class Hub {
         if(active()==null||System.currentTimeMillis()-intent.get("createdAt").getAsLong()>86400000L||!active().projectKey().equals(Json.str(intent,"projectKey"))||!activeHash().equals(Json.str(intent,"targetHash"))||!audit().isEmpty())return null;
         var current=selectedServer(active());return current!=null&&current.id().equals(Json.str(intent,"serverId"))&&current.address().equals(Json.str(intent,"address"))?current:null;
     }
-    public String stage(RepositoryClient.Release release,Planner.Plan plan,AtomicBoolean cancel,Consumer<String> progress)throws Exception{
+    public String stage(RepositoryClient.Release release,Planner.Plan plan,AtomicBoolean cancel,Consumer<String> progress)throws Exception{writableState();
         if(helperProcess!=null&&helperProcess.isAlive())throw new IOException("An update is already pending; close Minecraft first");
         if(!plan.conflicts().isEmpty())throw new IOException(String.join("\n",plan.conflicts()));
         repositories.trust(release);saveRepository(release.manifest().repository());saveLocalState();
@@ -126,7 +146,7 @@ public final class Hub {
             for(var entry:plan.ownership().entrySet())if(entry.getValue().policy().equals("enforce")&&!entry.getValue().hash().equals(Planner.hash(SafePaths.resolve(game,entry.getKey()))))throw new IOException("Files changed during verification");
             JsonObject current=load("state.json");if(!current.equals(state))throw new IOException("Project state changed during verification");
             if(state.has("transactionId"))next.add("transactionId",state.get("transactionId"));else next.remove("transactionId");
-            Json.write(game.resolve("anthub/state.json"),next);state=next;loadedManifest=release.manifest();try{InstallationHistory.live(game,release.manifest().repository(),release.manifest().version());}catch(IOException logFailure){System.getLogger(Hub.class.getName()).log(System.Logger.Level.WARNING,"Could not record installation history",logFailure);}progress.accept("Applied without restart");return "";
+            Json.write(game.resolve("anthub/state.json"),next);state=next;loadedManifest=release.manifest();recovery="";try{InstallationHistory.live(game,release.manifest().repository(),release.manifest().version());}catch(IOException logFailure){System.getLogger(Hub.class.getName()).log(System.Logger.Level.WARNING,"Could not record installation history",logFailure);}progress.accept("Applied without restart");return "";
         }}
         new Transactions(game).prepare(plan,release.bytes(),next);startHelper(plan.id());progress.accept("Ready to close Minecraft");return plan.id();
     }
@@ -170,6 +190,7 @@ public final class Hub {
     }
     /** Called only after the player accepts this particular update. */
     public String prepareCoreUpdate(Path loadedJar,CoreUpdater.Update update)throws Exception{ synchronized(coreInstallLock){
+        writableState();
         if(Files.exists(game.resolve("anthub/pending.json"))||(helperProcess!=null&&helperProcess.isAlive()))throw new IllegalStateException("Сначала завершите уже подготовленное обновление");
         String id=new CoreUpdater(remote).stage(game,loadedJar,update,cache,state());
         try { startHelper(id); }

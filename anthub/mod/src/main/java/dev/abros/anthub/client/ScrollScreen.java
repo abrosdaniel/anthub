@@ -8,6 +8,12 @@ abstract class ScrollScreen extends Screen {
  protected ScrollScreen(Component title){super(title);}
  protected void scrollArea(int count,int top,int bottom,int rowHeight,int right){this.count=count;this.top=top;this.bottom=bottom;this.right=right;visibleRows=Math.max(1,(bottom-top)/rowHeight);position=Math.max(0,Math.min(position,Math.max(0,count-visibleRows)));firstRow=(int)position;}
  private void move(double value){position=Math.max(0,Math.min(value,Math.max(0,count-visibleRows)));int next=(int)position;if(next!=firstRow){firstRow=next;rowsChanged();}if(position>=Math.max(0,count-visibleRows))onScrollEnd();}
+ @Override protected void rebuildWidgets(){
+  var previous=getFocused();String label=previous instanceof net.minecraft.client.gui.components.AbstractWidget widget?widget.getMessage().getString():null;
+  int cursor=previous instanceof net.minecraft.client.gui.components.EditBox edit?edit.getCursorPosition():-1;
+  super.rebuildWidgets();
+  if(label!=null)for(var child:children())if(child.getClass()==previous.getClass()&&child instanceof net.minecraft.client.gui.components.AbstractWidget widget&&widget.getMessage().getString().equals(label)){setFocused(child);if(cursor>=0&&child instanceof net.minecraft.client.gui.components.EditBox edit)edit.setCursorPosition(Math.min(cursor,edit.getValue().length()));break;}
+ }
  protected void onScrollEnd(){}
  protected void restoreScroll(int row){position=Math.max(0,row);firstRow=(int)position;}
  protected void resetScroll(){position=0;firstRow=0;}
@@ -19,5 +25,5 @@ abstract class ScrollScreen extends Screen {
  @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){if(dragging&&button==0){seek(y);return true;}return super.mouseDragged(x,y,button,dx,dy);}
  @Override public boolean mouseReleased(double x,double y,int button){dragging=false;return super.mouseReleased(x,y,button);}
  @Override public boolean keyPressed(int key,int scan,int modifiers){if((getFocused() instanceof net.minecraft.client.gui.components.EditBox||getFocused() instanceof net.minecraft.client.gui.components.MultiLineEditBox)&&getFocused().keyPressed(key,scan,modifiers))return true;switch(key){case 266:move(position-visibleRows);return true;case 267:move(position+visibleRows);return true;case 268:move(0);return true;case 269:move(count);return true;default:return super.keyPressed(key,scan,modifiers);}}
- @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);if(count>visibleRows){g.fill(right,top,right+6,bottom,0x88202020);int start=top+(int)((bottom-top-thumb())*position/(count-visibleRows));g.fill(right,start,right+6,start+thumb(),0xFFAAAAAA);}}
+ @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);if(count>visibleRows){g.fill(right,top,right+6,bottom,AccessibilityScreen.background(0x88202020));int start=top+(int)((bottom-top-thumb())*position/(count-visibleRows));g.fill(right,start,right+6,start+thumb(),AccessibilityScreen.background(0xFFAAAAAA));}}
 }

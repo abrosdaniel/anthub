@@ -12,16 +12,10 @@ final class CoreVersionButton extends Button {
                 net.minecraft.client.Minecraft.getInstance().setScreen(new CoreVersionsPopup(parent)),DEFAULT_NARRATION);
     }
     @Override protected void renderWidget(GuiGraphics graphics,int x,int y,float delta){
+        boolean update=Client.offeredUpdate!=null;
+        setMessage(Component.literal(AntHub.VERSION+" ").append(Component.literal(update?"↑":"▾").withStyle(s->s.withColor(update?0xFF3333:0xFFFFFF))));
+        setTooltip(update?net.minecraft.client.gui.components.Tooltip.create(Component.literal("Доступна новая версия AntHub")):null);
         super.renderWidget(graphics,x,y,delta);
-        if(Client.offeredUpdate!=null){
-            int left=getX()+5,top=getY()+(getHeight()-7)/2;
-            int border=0xFF29033F,red=0xFFFF3333;
-            // Seven-pixel rounded indicator with a one-pixel outline.
-            graphics.fill(left+2,top,left+5,top+7,border);
-            graphics.fill(left+1,top+1,left+6,top+6,border);
-            graphics.fill(left,top+2,left+7,top+5,border);
-            graphics.fill(left+2,top+1,left+5,top+6,red);
-            graphics.fill(left+1,top+2,left+6,top+5,red);
-        }
+        if(update)graphics.renderOutline(getX(),getY(),getWidth(),getHeight(),0xFF29033F);
     }
 }

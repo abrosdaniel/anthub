@@ -44,7 +44,7 @@ public final class HubScreen extends ScrollScreen {
    if(failure!=null){status=failureMessage(failure);return;}
    try{Client.hub.rememberProject(found.manifest());}catch(Exception e){status=Errors.message(e);return;}
    if(release==null||!release.manifest().repository().equals(found.manifest().repository())){newsPane.text("");rulesPane.text("");}
-   release=found;releases.put(found.manifest().repository(),found);status=found.offline()?Client.tr("offline.cached").getString():"";
+   release=found;releases.put(found.manifest().repository(),found);status=!Client.hub.recoveryMessage().isEmpty()?Client.hub.recoveryMessage():found.offline()?Client.tr("offline.cached").getString():"";
    loadAttempted.add(found.manifest().repository());Client.syncServers();pingRepository(found.manifest().repository());rebuildWidgets();loadPane(found,"news",newsPane);loadPane(found,"rules",rulesPane);if(join)connect();
   },minecraft);
  }
@@ -52,7 +52,7 @@ public final class HubScreen extends ScrollScreen {
   if(request!=generation||release!=found)return;
   pane.text(failure!=null?failureMessage(failure):text.isBlank()?Client.tr("content.empty").getString():text);
  },minecraft);}
- private void catalog(){if(Client.hub==null||busy)return;busy=true;long request=generation;track(repositories().catalog()).whenCompleteAsync((repos,failure)->{if(request!=generation||minecraft.screen!=this)return;busy=false;if(failure!=null)status=failureMessage(failure);else minecraft.setScreen(new RegistryScreen(this,repos));},minecraft);}
+ private void catalog(){if(Client.hub==null){status=Client.error.isBlank()?"AntHub загружается…":"Ошибка запуска AntHub: "+Client.error;return;}if(busy)return;busy=true;long request=generation;track(repositories().catalog()).whenCompleteAsync((repos,failure)->{if(request!=generation||minecraft.screen!=this)return;busy=false;if(failure!=null)status=failureMessage(failure);else minecraft.setScreen(new RegistryScreen(this,repos));},minecraft);}
 
 
  private void ping(String repo,Manifest.Server server){var data=new ServerData(server.name(),server.address(),ServerData.Type.OTHER);serverStatuses.put(repo,data);Client.NETWORK.submit(()->{try{pinger.pingServer(data,()->{},()->{});}catch(Exception e){data.motd=Client.tr("server.offline");data.ping=-1;}});}

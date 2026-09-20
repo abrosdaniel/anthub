@@ -9,10 +9,12 @@ import net.neoforged.bus.api.EventPriority;
 final class ServerDatabase {
     private static PgDatabase database;
     private static boolean attempted;
+    private static dev.abros.anthub.core.ServerSettings settings;
+    static dev.abros.anthub.core.ServerSettings settings(){if(settings==null)throw new IllegalStateException("AntHub server settings not loaded");return settings;}
 
     static void install() {
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST,
-            (net.neoforged.neoforge.event.server.ServerAboutToStartEvent event) -> { reset(); get(); });
+            (net.neoforged.neoforge.event.server.ServerAboutToStartEvent event) -> { reset(); try { settings=dev.abros.anthub.core.ServerSettings.load(net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().toAbsolutePath().normalize()); } catch(java.io.IOException error){throw new IllegalStateException("AntHub: cannot read config/anthub-server.toml; startup stopped");} get(); });
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST,
             (net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> reset());
     }
@@ -21,23 +23,23 @@ final class ServerDatabase {
         if (database != null) database.close();
         database = null;
         attempted = false;
+        settings = null;
     }
 
     static synchronized PgDatabase get() {
         if (!attempted) {
             attempted = true;
             try {
-                database = new PgDatabase(DatabaseSettings.load(
-                    net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().toAbsolutePath().normalize()));
+                database = new PgDatabase(settings().database());
             } catch (Exception failure) {
                 // Do not print raw driver exceptions or configuration values: they may contain secrets.
                 com.mojang.logging.LogUtils.getLogger().error(
                     "AntHub: PostgreSQL не настроена или недоступна. Запуск сервера ОСТАНОВЛЕН. " +
-                    "Проверьте config/anthub-database.properties, поле password, переменную ANTHUB_DB_PASSWORD (если задана) или файл пароля, " +
+                    "Проверьте config/anthub-server.toml [database], поле password, переменную ANTHUB_DB_PASSWORD (если задана) " +
                     "доступность хоста и порта, TLS и права пользователя на схему anthub. Инструкция: README, раздел PostgreSQL.");
             }
         }
-        if(database==null)throw new IllegalStateException("AntHub: запуск сервера остановлен — PostgreSQL не настроена или недоступна. Проверьте config/anthub-database.properties, пароль, сеть, TLS и права на схему anthub. См. README, раздел PostgreSQL.");
+        if(database==null)throw new IllegalStateException("AntHub: запуск сервера остановлен — PostgreSQL не настроена или недоступна. Проверьте config/anthub-server.toml [database], пароль, сеть, TLS и права на схему anthub. См. README, раздел PostgreSQL.");
         return database;
     }
 }

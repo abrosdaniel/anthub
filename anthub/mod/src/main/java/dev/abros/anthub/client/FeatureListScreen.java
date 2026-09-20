@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter;
 final class FeatureListScreen extends ScrollScreen {
     private final java.util.Map<Integer,String> cursors=new java.util.HashMap<>();private JsonObject selectedPlayer;private long dirtyAt,lastLoad;private boolean busy,more;private int loadedPage,refreshThrough;private long nextAt;private final java.util.NavigableMap<Integer,JsonArray> batches=new java.util.TreeMap<>();
     void invalidate(){if(dirtyAt==0)dirtyAt=System.currentTimeMillis();}
-    private boolean splitPlayers(){return kind.equals("players")&&selection==null&&height>=290&&width-nav.left()>=460;}
+    private boolean splitPlayers(){return kind.equals("players")&&selection==null&&height>=390&&width-nav.left()>=460;}
     private int listWidth(){return width-nav.left()-20-(splitPlayers()?220:0);}
     private String requestId="";private String focusReport="";private final MenuSidebar nav=new MenuSidebar(this);private java.util.function.Consumer<JsonObject> selection;private String query="";private boolean allPlayers;private final Screen parent;final String kind;private JsonArray entries=new JsonArray(),actions=new JsonArray();private int page;private String status="";
     FeatureListScreen(Screen parent,String kind){super(Client.tr("server."+kind));this.parent=parent;this.kind=kind;}
@@ -44,12 +44,13 @@ final class FeatureListScreen extends ScrollScreen {
         if(splitPlayers()&&selectedPlayer!=null){
             int x=width-222,wPanel=202;
             int half=(wPanel-20)/2;boolean online=selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean();
-            if(online&&actions.contains(new JsonPrimitive("tell")))addRenderableWidget(Button.builder(Component.literal("Написать"),b->minecraft.setScreen(new ChatScreen("/tell "+Json.str(selectedPlayer,"name")+" "))).bounds(x+8,142,half,20).build());
-            addRenderableWidget(Button.builder(Component.literal("Пожаловаться"),b->minecraft.setScreen(new ReportScreen(this,"Игрок: "+Json.str(selectedPlayer,"name")+"\n"))).bounds(x+12+half,142,half,20).build());
-            addRenderableWidget(Button.builder(Component.literal("Пригласить в объединение"),b->CommunityScreen.invite(this,selectedPlayer)).bounds(x+8,166,wPanel-16,20).build());
+            if(online&&actions.contains(new JsonPrimitive("tell")))addRenderableWidget(Button.builder(Component.literal("Написать"),b->minecraft.setScreen(new ChatScreen("/tell "+Json.str(selectedPlayer,"name")+" "))).bounds(x+8,230,half,20).build());
+            addRenderableWidget(Button.builder(Component.literal("Пожаловаться"),b->minecraft.setScreen(new ReportScreen(this,"Игрок: "+Json.str(selectedPlayer,"name")+"\n"))).bounds(x+12+half,230,half,20).build());
+            addRenderableWidget(Button.builder(Component.literal("Пригласить в объединение"),b->CommunityScreen.invite(this,selectedPlayer)).bounds(x+8,254,wPanel-16,20).build());
             boolean moderation=false;for(var action:actions)if(!action.getAsString().equals("tell"))moderation=true;
-            if(moderation)addRenderableWidget(Button.builder(Component.literal("Модерация…"),b->minecraft.setScreen(new PlayerActionsScreen(this,selectedPlayer,actions,true))).bounds(x+8,190,wPanel-16,20).build());
-            if(AuthClient.available()&&ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean())addRenderableWidget(Button.builder(Component.literal("Сброс доступа…"),b->AuthAccountScreen.invite(this,Json.str(selectedPlayer,"name"))).bounds(x+8,214,wPanel-16,20).build());
+            if(moderation)addRenderableWidget(Button.builder(Component.literal("Модерация…"),b->minecraft.setScreen(new PlayerActionsScreen(this,selectedPlayer,actions,true))).bounds(x+8,278,wPanel-16,20).build());
+            if(ModerationVoteScreen.enabled()&&!Json.str(selectedPlayer,"uuid").equals(Json.opt(ServerMenuClient.state,"uuid","")))addRenderableWidget(Button.builder(Component.literal("Голосование о нарушении…"),b->minecraft.setScreen(new ModerationVoteScreen(this,selectedPlayer))).bounds(x+8,326,wPanel-16,20).build());
+            if(AuthClient.available()&&ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean())addRenderableWidget(Button.builder(Component.literal("Сброс доступа…"),b->AuthAccountScreen.invite(this,Json.str(selectedPlayer,"name"))).bounds(x+8,302,wPanel-16,20).build());
         }
         addRenderableWidget(Button.builder(Client.tr("server.refresh"),b->refresh()).bounds(kind.equals("players")?nav.left():width/2-50,height-28,80,20).build());
         addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(width-114,height-28,100,20).build());
@@ -66,15 +67,16 @@ final class FeatureListScreen extends ScrollScreen {
     @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(kind.equals("players")&&nav.scroll(x,dy)){rebuildWidgets();return true;}boolean used=super.mouseScrolled(x,y,dx,dy);if(dy<0&&firstRow+visibleRows>=entries.size())next();return used;}
     @Override public void tick(){if(!ServerMenuClient.available())minecraft.setScreen(null);else if(busy&&System.currentTimeMillis()-lastLoad>15000)failure("Нет ответа. Нажмите «Обновить».");else if(!busy&&nextAt>0&&System.currentTimeMillis()>=nextAt){nextAt=0;load(page+1);}else if(!busy&&dirtyAt>0&&System.currentTimeMillis()-lastLoad>750){dirtyAt=0;refresh();}else if((kind.equals("reports")||kind.equals("history"))&&!ServerMenuClient.admin())minecraft.setScreen(parent);}
     @Override public void renderBackground(GuiGraphics g,int mx,int my,float d){super.renderBackground(g,mx,my,d);if(splitPlayers()){
-        int x=width-222;g.fill(x,38,width-20,height-42,0xCE1B252E);g.fill(x,38,width-20,41,0xFF82B6F2);
+        int x=width-222;g.fill(x,38,width-20,height-42,AccessibilityScreen.background(0xCE1B252E));g.fill(x,38,width-20,41,AccessibilityScreen.background(0xFF82B6F2));
         if(selectedPlayer==null){Ui.status(g,font,"Выберите игрока слева, чтобы открыть его карточку.",x+12,62,178,height-78);return;}
         var info=minecraft.getConnection()==null?null:minecraft.getConnection().getPlayerInfo(java.util.UUID.fromString(Json.str(selectedPlayer,"uuid")));
         if(info!=null)PlayerFaceRenderer.draw(g,info.getSkin(),x+12,54,32);
         g.drawString(font,net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(PlayerText.name(selectedPlayer),140)),x+52,58,0xFFFFFF);
         g.drawString(font,selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean()?"В сети":"Не в сети",x+52,74,0x79CBA6);
-        g.drawString(font,net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(Component.literal(info!=null?"Пинг: "+info.getLatency()+" мс":selectedPlayer.has("seen")?"Был в сети: "+DateTimeFormatter.ofPattern("dd.MM HH:mm").format(Instant.ofEpochMilli(selectedPlayer.get("seen").getAsLong()).atZone(ZoneId.systemDefault())):"Не в сети"),178)),x+12,104,0xBAC7D2);
+        g.drawString(font,net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(Component.literal(info!=null?"Пинг: "+info.getLatency()+" мс":selectedPlayer.has("seen")?"Был в сети: "+DateTimeFormatter.ofPattern("dd.MM HH:mm").format(Instant.ofEpochMilli(selectedPlayer.get("seen").getAsLong()).atZone(ZoneId.systemDefault())):"Не в сети"),178)),x+12,104,AccessibilityScreen.foreground(0xBAC7D2));
+        int statY=122;for(String line:PlayerStatisticsText.lines(selectedPlayer)){g.drawString(font,font.plainSubstrByWidth(line,178),x+12,statY,AccessibilityScreen.foreground(0xBAC7D2));statY+=14;}
     }}
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);if(kind.equals("players")&&minecraft.getConnection()!=null)for(int i=firstRow;i<Math.min(entries.size(),firstRow+visibleRows);i++){var player=entries.get(i).getAsJsonObject();var info=minecraft.getConnection().getPlayerInfo(java.util.UUID.fromString(Json.str(player,"uuid")));if(info!=null)net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g,info.getSkin(),nav.left(),72+(i-firstRow)*28,20);}g.drawCenteredString(font,title,width/2,16,0xE2BE75);if(!status.isEmpty())g.drawCenteredString(font,status,width/2,height-66,0xEEEEEE);}
+    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);if(kind.equals("players")&&minecraft.getConnection()!=null)for(int i=firstRow;i<Math.min(entries.size(),firstRow+visibleRows);i++){var player=entries.get(i).getAsJsonObject();var info=minecraft.getConnection().getPlayerInfo(java.util.UUID.fromString(Json.str(player,"uuid")));if(info!=null)net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g,info.getSkin(),nav.left(),72+(i-firstRow)*28,20);}g.drawCenteredString(font,title,width/2,16,0xE2BE75);if(!status.isEmpty())g.drawCenteredString(font,status,width/2,height-66,AccessibilityScreen.foreground(0xEEEEEE));}
     @Override public boolean isPauseScreen(){return false;}
     @Override public void onClose(){minecraft.setScreen(parent);}
 }
