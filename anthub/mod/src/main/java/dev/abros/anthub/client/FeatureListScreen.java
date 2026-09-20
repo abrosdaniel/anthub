@@ -43,14 +43,17 @@ final class FeatureListScreen extends ScrollScreen {
 
         if(splitPlayers()&&selectedPlayer!=null){
             int x=width-222,wPanel=202;
+            int actionY=132+PlayerStatisticsText.lines(selectedPlayer).size()*14;
             int half=(wPanel-20)/2;boolean online=selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean();
-            if(online&&actions.contains(new JsonPrimitive("tell")))addRenderableWidget(Button.builder(Component.literal("Написать"),b->minecraft.setScreen(new ChatScreen("/tell "+Json.str(selectedPlayer,"name")+" "))).bounds(x+8,230,half,20).build());
-            addRenderableWidget(Button.builder(Component.literal("Пожаловаться"),b->minecraft.setScreen(new ReportScreen(this,"Игрок: "+Json.str(selectedPlayer,"name")+"\n"))).bounds(x+12+half,230,half,20).build());
-            addRenderableWidget(Button.builder(Component.literal("Пригласить в объединение"),b->CommunityScreen.invite(this,selectedPlayer)).bounds(x+8,254,wPanel-16,20).build());
+            if(online&&actions.contains(new JsonPrimitive("tell")))addRenderableWidget(Button.builder(Component.literal("Написать"),b->PlayerActionsScreen.openChat(this,Json.str(selectedPlayer,"name"))).bounds(x+8,actionY,half,20).build());
+            addRenderableWidget(Button.builder(Component.literal("Пожаловаться"),b->minecraft.setScreen(new ReportScreen(this,"Игрок: "+Json.str(selectedPlayer,"name")+"\n"))).bounds(x+12+half,actionY,half,20).build());
+            addRenderableWidget(Button.builder(Component.literal("Пригласить в объединение"),b->CommunityScreen.invite(this,selectedPlayer)).bounds(x+8,actionY+24,wPanel-16,20).build());
             boolean moderation=false;for(var action:actions)if(!action.getAsString().equals("tell"))moderation=true;
-            if(moderation)addRenderableWidget(Button.builder(Component.literal("Модерация…"),b->minecraft.setScreen(new PlayerActionsScreen(this,selectedPlayer,actions,true))).bounds(x+8,278,wPanel-16,20).build());
-            if(ModerationVoteScreen.enabled()&&!Json.str(selectedPlayer,"uuid").equals(Json.opt(ServerMenuClient.state,"uuid","")))addRenderableWidget(Button.builder(Component.literal("Голосование о нарушении…"),b->minecraft.setScreen(new ModerationVoteScreen(this,selectedPlayer))).bounds(x+8,326,wPanel-16,20).build());
-            if(AuthClient.available()&&ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean())addRenderableWidget(Button.builder(Component.literal("Сброс доступа…"),b->AuthAccountScreen.invite(this,Json.str(selectedPlayer,"name"))).bounds(x+8,302,wPanel-16,20).build());
+            int nextActionY=actionY+48;
+            if(moderation){addRenderableWidget(Button.builder(Component.literal("Модерация…"),b->minecraft.setScreen(new PlayerActionsScreen(this,selectedPlayer,actions,true))).bounds(x+8,nextActionY,wPanel-16,20).build());nextActionY+=24;}
+            if(AuthClient.available()&&ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean()){addRenderableWidget(Button.builder(Component.literal("Сброс доступа…"),b->AuthAccountScreen.invite(this,Json.str(selectedPlayer,"name"))).bounds(x+8,nextActionY,wPanel-16,20).build());nextActionY+=24;}
+            if(ModerationVoteScreen.enabled()&&!Json.str(selectedPlayer,"uuid").equals(Json.opt(ServerMenuClient.state,"uuid","")))addRenderableWidget(Button.builder(Component.literal("Голосование о нарушении…"),b->minecraft.setScreen(new ModerationVoteScreen(this,selectedPlayer))).bounds(x+8,nextActionY,wPanel-16,20).build());
+
         }
         addRenderableWidget(Button.builder(Client.tr("server.refresh"),b->refresh()).bounds(kind.equals("players")?nav.left():width/2-50,height-28,80,20).build());
         addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(width-114,height-28,100,20).build());
@@ -72,8 +75,8 @@ final class FeatureListScreen extends ScrollScreen {
         var info=minecraft.getConnection()==null?null:minecraft.getConnection().getPlayerInfo(java.util.UUID.fromString(Json.str(selectedPlayer,"uuid")));
         if(info!=null)PlayerFaceRenderer.draw(g,info.getSkin(),x+12,54,32);
         g.drawString(font,net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(PlayerText.name(selectedPlayer),140)),x+52,58,0xFFFFFF);
-        g.drawString(font,selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean()?"В сети":"Не в сети",x+52,74,0x79CBA6);
-        g.drawString(font,net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(Component.literal(info!=null?"Пинг: "+info.getLatency()+" мс":selectedPlayer.has("seen")?"Был в сети: "+DateTimeFormatter.ofPattern("dd.MM HH:mm").format(Instant.ofEpochMilli(selectedPlayer.get("seen").getAsLong()).atZone(ZoneId.systemDefault())):"Не в сети"),178)),x+12,104,AccessibilityScreen.foreground(0xBAC7D2));
+        g.drawString(font,selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean()?"В сети":"Не в сети",x+52,74,selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean()?0x79CBA6:0xEF7777);
+        if(info!=null)g.drawString(font,"Пинг: "+info.getLatency()+" мс",x+12,104,AccessibilityScreen.foreground(0xBAC7D2));
         int statY=122;for(String line:PlayerStatisticsText.lines(selectedPlayer)){g.drawString(font,font.plainSubstrByWidth(line,178),x+12,statY,AccessibilityScreen.foreground(0xBAC7D2));statY+=14;}
     }}
     @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);if(kind.equals("players")&&minecraft.getConnection()!=null)for(int i=firstRow;i<Math.min(entries.size(),firstRow+visibleRows);i++){var player=entries.get(i).getAsJsonObject();var info=minecraft.getConnection().getPlayerInfo(java.util.UUID.fromString(Json.str(player,"uuid")));if(info!=null)net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g,info.getSkin(),nav.left(),72+(i-firstRow)*28,20);}g.drawCenteredString(font,title,width/2,16,0xE2BE75);if(!status.isEmpty())g.drawCenteredString(font,status,width/2,height-66,AccessibilityScreen.foreground(0xEEEEEE));}

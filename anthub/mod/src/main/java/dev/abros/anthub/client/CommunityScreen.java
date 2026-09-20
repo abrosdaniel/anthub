@@ -14,7 +14,7 @@ import java.util.function.*;
 /** Community navigation, paged lists and contextual actions with request-bound responses. */
 final class CommunityScreen extends ScrollScreen {
     interface Receiver {void receiveCommunity(JsonObject response);}
-    record Row(String label,Runnable click,double progress){Row(String label,Runnable click){this(label,click,-1);}}
+    record Row(String label,Runnable click,double progress,List<Row> buttons){Row(String label,Runnable click){this(label,click,-1,List.of());}Row(String label,Runnable click,double progress){this(label,click,progress,List.of());}}
     private final Screen parent;
     final String section;
     final String itemId;JsonObject invitationTarget;private String memberFilter="";
@@ -67,7 +67,8 @@ final class CommunityScreen extends ScrollScreen {
     private void drawRowWidgets(CommunityScreen child,int x,int top,int w){
         for(int n=child.firstRow;n<Math.min(child.rows.size(),child.firstRow+child.visibleRows);n++){
             var row=child.rows.get(n);int y=top+(n-child.firstRow)*24;
-            if(row.progress>=0){var bar=new PollOption(x,y,w,row.label,row.progress,()->{if(!child.busy&&row.click!=null)row.click.run();});bar.active=row.click!=null;addRenderableWidget(bar);}
+            if(!row.buttons.isEmpty()){int bw=Math.min((w-4*(row.buttons.size()-1))/row.buttons.size(),row.buttons.stream().mapToInt(a->font.width(a.label)+20).max().orElse(100));for(int i=0;i<row.buttons.size();i++){var action=row.buttons.get(i);var control=button(font.plainSubstrByWidth(action.label,bw-12),x+i*(bw+4),y,bw,()->{if(!child.busy)action.click.run();});control.setTooltip(Tooltip.create(Component.literal(action.label)));control.active=!child.busy;}}
+            else if(row.progress>=0){var bar=new PollOption(x,y,w,row.label,row.progress,()->{if(!child.busy&&row.click!=null)row.click.run();});bar.active=row.click!=null;addRenderableWidget(bar);}
             else if(row.click!=null){var control=button(font.plainSubstrByWidth(row.label,w-12),x,y,w,()->{if(!child.busy)row.click.run();});control.active=!child.busy;}
         }
     }
@@ -83,13 +84,14 @@ final class CommunityScreen extends ScrollScreen {
     private void renderDetailPane(GuiGraphics g){
         int x=detailLeft(),w=width-x-20;g.fill(x,104,x+w,height-82,AccessibilityScreen.background(0xD01B252E));var child=selected();
         if(child==null){g.drawString(font,"Выберите запись",x+10,116,0xBAC6D2);return;}
-        if(child.data.has("detail")){var j=child.data.getAsJsonObject("detail");g.drawString(font,font.plainSubstrByWidth(Json.str(j,"title"),w-50),x+8,112,0xFFFFFF);g.drawString(font,font.plainSubstrByWidth(status(Json.str(j,"status")),w-16),x+8,128,child.accent());}
+        if(child.data.has("detail")){var j=child.data.getAsJsonObject("detail");g.drawString(font,font.plainSubstrByWidth(Json.str(j,"title"),w-50),x+8,112,0xFFFFFF);g.drawString(font,font.plainSubstrByWidth(child.detailStatus(j),w-16),x+8,128,child.accent());}
         int top=child.bodyTop();g.enableScissor(x,top,x+w,height-82);
-        for(int n=child.firstRow;n<Math.min(child.rows.size(),child.firstRow+child.visibleRows);n++){var row=child.rows.get(n);if(row.click==null&&row.progress<0)g.drawString(font,row.label,x+8,top+(n-child.firstRow)*24+6,AccessibilityScreen.foreground(0xEEEEEE));}
+        for(int n=child.firstRow;n<Math.min(child.rows.size(),child.firstRow+child.visibleRows);n++){var row=child.rows.get(n);if(row.click==null&&row.progress<0&&row.buttons.isEmpty())g.drawString(font,row.label,x+8,top+(n-child.firstRow)*24+6,AccessibilityScreen.foreground(0xEEEEEE));}
         g.disableScissor();
         if(child.rows.size()>child.visibleRows){int track=height-82-top,thumb=Math.max(12,track*child.visibleRows/child.rows.size());int y=top+(track-thumb)*child.firstRow/(child.rows.size()-child.visibleRows);g.fill(x+w-4,top,x+w,height-82,AccessibilityScreen.background(0x88202020));g.fill(x+w-4,y,x+w,y+thumb,AccessibilityScreen.background(0xFFAAAAAA));}
         if(!child.status.isEmpty())Ui.status(g,font,child.status,x,height-78,w,height-56);
     }
+    private String detailStatus(JsonObject j){return section.equals("groups")&&Json.str(j,"status").equals("open")?(j.has("recruiting")&&j.get("recruiting").getAsBoolean()?"Набор открыт":"Набор закрыт"):status(Json.str(j,"status"));}
     private void scrollDetail(double delta){var child=selected();if(child==null)return;detailPosition=Math.max(0,Math.min(detailPosition+delta,Math.max(0,child.rows.size()-child.visibleRows)));child.firstRow=(int)detailPosition;refreshUi();if(child.firstRow+child.visibleRows>=child.rows.size())child.nextPage();}
     void refreshPermissions(){refreshUi();}
     private static final Map<String,String> NAMES=Map.ofEntries(Map.entry("home","Главная"),Map.entry("players","Игроки"),Map.entry("board","Доска объявлений"),Map.entry("groups","Объединения"),Map.entry("events","События"),Map.entry("polls","Голосования"),Map.entry("ideas","Предложения"),Map.entry("notifications","Уведомления"),Map.entry("info","Сервер"),Map.entry("help","Помощь"),Map.entry("admin","Администрирование"));
@@ -115,7 +117,7 @@ final class CommunityScreen extends ScrollScreen {
         int unread=ServerMenuClient.state.has("unread")?ServerMenuClient.state.get("unread").getAsInt():0;
         notificationButton=button((width<420?"●":"Уведомления")+(unread>0?" ("+unread+")":""),Math.max(left(),width-(width<420?158:220)),12,width<420?68:130,()->navigate("notifications"));if(!home())button("Главная",width-86,12,78,()->navigate("home"));
         if(itemId.isEmpty()&&!section.equals("home")){
-            search=addRenderableWidget(new EditBox(font,left(),76,Math.max(50,width-left()-154),20,Component.literal("Поиск")));search.setMaxLength(100);search.setHint(Component.literal("Поиск"));search.setValue(query);search.setResponder(v->query=v);
+            search=addRenderableWidget(new EditBox(font,left(),76,Math.max(20,width-left()-170),20,Component.literal("Поиск")));search.setMaxLength(100);search.setHint(Component.literal("Поиск"));search.setValue(query);search.setResponder(v->query=v);
             button("Найти",width-164,76,50,this::resetList);button(mine?"Мои":participating?"Участвую":"Все",width-110,76,90,()->{if(!busy)minecraft.setScreen(new ChoicePopup(this,"Показать",List.of("Все","Мои","Участвую"),i->{mine=i==1;participating=i==2;resetList();}));});
         }
         if(home()){
@@ -263,6 +265,13 @@ final class CommunityScreen extends ScrollScreen {
     }
     void text(String text){for(String line:text.split("\n",-1)){if(line.isEmpty()){rows.add(new Row("",null));continue;}for(var part:font.getSplitter().splitLines(line,Math.max(40,contentWidth()-24),net.minecraft.network.chat.Style.EMPTY))rows.add(new Row(part.getString(),null));}}
     void action(String name,Runnable action){rows.add(new Row(name,action));}
+    void actionRow(List<Row> actions){
+        if(actions.isEmpty())return;
+        int available=contentWidth()-16;var group=new ArrayList<Row>();int used=0;
+        for(var action:actions){int needed=font.width(action.label)+16;if(!group.isEmpty()&&(group.size()==3||(Math.max(used,needed)+4)*(group.size()+1)-4>available)){rows.add(new Row("",null,-1,List.copyOf(group)));group.clear();used=0;}group.add(action);used=Math.max(used,needed);}
+        if(!group.isEmpty())rows.add(new Row("",null,-1,List.copyOf(group)));
+    }
+
     private void list(){
         if(section.equals("polls")&&ModerationVoteScreen.enabled())action("Нарушение правил · голосование игроков",()->minecraft.setScreen(new ModerationVoteScreen(this,null)));
         if(section.equals("home")){if(data.has("pinnedAnnouncement")){var pin=data.getAsJsonObject("pinnedAnnouncement");text("Объявление администрации");text(Json.str(pin,"text"));text("До "+local(pin.get("until").getAsLong()));text("");}text("Ваши объявления, заявки и ближайшие дела");if(data.has("preferences")){var prefs=data.getAsJsonObject("preferences");if(prefs.has("favorites"))for(var key:prefs.getAsJsonArray("favorites")){String k=key.getAsString();action("★ "+name(k),()->navigate(k));}}}
@@ -314,7 +323,7 @@ final class CommunityScreen extends ScrollScreen {
     @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){if(detailDragging&&button==0){seekDetail(y);return true;}return super.mouseDragged(x,y,button,dx,dy);}
     @Override public boolean mouseReleased(double x,double y,int button){detailDragging=false;return super.mouseReleased(x,y,button);}
     @Override public boolean keyPressed(int key,int scan,int modifiers){if(key==256&&selected()!=null){expanded.clear();refreshUi();return true;}if(splitLayout()&&selected()!=null&&getFocused() instanceof AbstractWidget widget&&widget.getX()>=detailLeft()){if(key==266||key==267){scrollDetail((key==266?-1:1)*selected().visibleRows);return true;}}return super.keyPressed(key,scan,modifiers);}
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawString(font,font.plainSubstrByWidth(name(section),Math.max(40,width-240)),8,18,0xE2BE75);int top=contentTop();if(!cards())for(int n=firstRow;n<Math.min(rows.size(),firstRow+visibleRows);n++)if(rows.get(n).click==null&&rows.get(n).progress<0)g.drawString(font,rows.get(n).label,left()+4,top+(n-firstRow)*24+6,AccessibilityScreen.foreground(0xEEEEEE));Ui.status(g,font,status,left(),contentBottom()+4,contentWidth(),height-30);}
+    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawString(font,font.plainSubstrByWidth(name(section),Math.max(40,width-240)),8,18,0xE2BE75);int top=contentTop();if(!cards())for(int n=firstRow;n<Math.min(rows.size(),firstRow+visibleRows);n++)if(rows.get(n).click==null&&rows.get(n).progress<0&&rows.get(n).buttons.isEmpty())g.drawString(font,rows.get(n).label,left()+4,top+(n-firstRow)*24+6,AccessibilityScreen.foreground(0xEEEEEE));Ui.status(g,font,status,left(),contentBottom()+4,contentWidth(),height-30);}
     @Override public void tick(){if(inlineParent==null)for(var child:expanded.values())child.tick();if(notificationButton!=null){int unread=ServerMenuClient.state.has("unread")?ServerMenuClient.state.get("unread").getAsInt():0;notificationButton.setMessage(Component.literal((width<420?"●":"Уведомления")+(unread>0?" ("+unread+")":"")));}if(!ServerMenuClient.available())minecraft.setScreen(null);else if(session.timeout(System.currentTimeMillis())){busy=false;uncertain=true;nextPageAt=0;appendPage=false;status="Нет ответа. Нажмите «Повторить».";refreshUi();}else if(!busy&&nextPageAt>0&&System.currentTimeMillis()>=nextPageAt){nextPageAt=0;page++;send(itemId.isEmpty()?"list":"detail",new JsonObject());}else if(!busy&&!uncertain&&dirtyAt>0&&System.currentTimeMillis()-sentAt>750){dirtyAt=0;load();}}
     @Override public void onClose(){if(parent instanceof CommunityScreen screen)screen.invalidate();minecraft.setScreen(parent);}
     @Override public boolean isPauseScreen(){return false;}

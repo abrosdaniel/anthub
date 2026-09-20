@@ -15,7 +15,7 @@ final class PlayerActionsScreen extends ScrollScreen {
  PlayerActionsScreen(Screen parent,JsonObject player,JsonArray actions,boolean moderationOnly){this(parent,player,actions);this.moderationOnly=moderationOnly;}
  @Override protected void init(){rows.clear();if(ServerMenuClient.admin()&&ServerMenuClient.supports("admin-tools"))rows.add(new Action("Права и история модерации",()->minecraft.setScreen(new PlayerAdministrationScreen(this,player))));resetPermission=ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean();if(ServerMenuClient.state.has("actions"))actions=ServerMenuClient.state.getAsJsonArray("actions").deepCopy();boolean online=player.has("online")&&player.get("online").getAsBoolean();
   if(!moderationOnly){if(ModerationVoteScreen.enabled()&&!Json.str(player,"uuid").equals(Json.opt(ServerMenuClient.state,"uuid","")))rows.add(new Action("Голосование о нарушении…",()->minecraft.setScreen(new ModerationVoteScreen(this,player))));for(String line:PlayerStatisticsText.lines(player))rows.add(new Action("stat:"+line,null));if(AuthClient.available()&&ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean())rows.add(new Action("Приглашение для сброса пароля",()->AuthAccountScreen.invite(this,Json.str(player,"name"))));
-  if(online&&actions.contains(new JsonPrimitive("tell")))rows.add(new Action("Написать",()->minecraft.setScreen(new ChatScreen("/tell "+Json.str(player,"name")+" "))));
+  if(online&&actions.contains(new JsonPrimitive("tell")))rows.add(new Action("Написать",()->openChat(this,Json.str(player,"name"))));
   if(!Json.str(player,"uuid").equals(Json.opt(ServerMenuClient.state,"uuid","")))rows.add(new Action("Пригласить в объединение",()->CommunityScreen.invite(this,player)));
   rows.add(new Action("Объединения игрока",()->CommunityScreen.groupsFor(this,Json.str(player,"uuid"))));
   rows.add(new Action(Client.tr("server.report").getString(),()->minecraft.setScreen(new ReportScreen(this,"Игрок: "+Json.str(player,"name")+"\n"))));
@@ -25,6 +25,11 @@ final class PlayerActionsScreen extends ScrollScreen {
   int w=Math.min(500,width-40),x=(width-w)/2;scrollArea(rows.size(),panelTop+40,panelBottom-60,30,x+w+4);
   for(int i=firstRow;i<Math.min(rows.size(),firstRow+visibleRows);i++){int y=panelTop+40+(i-firstRow)*30;if(i==reasonRow){var edit=addRenderableWidget(new EditBox(font,x,y,w,20,Client.tr("server.reason")));edit.setMaxLength(300);edit.setHint(Client.tr("server.reason"));edit.setValue(reason);edit.setResponder(v->reason=v);}else if(i==minutesRow){var edit=addRenderableWidget(new EditBox(font,x,y,70,20,Client.tr("server.muteMinutes")));edit.setMaxLength(5);edit.setFilter(v->v.matches("[0-9]*"));edit.setValue(minutes);edit.setResponder(v->minutes=v);}else if(!rows.get(i).label.startsWith("stat:")){var action=rows.get(i);addRenderableWidget(Button.builder(Component.literal(action.label),b->action.run.run()).bounds(x,y,w,20).build());}}
   addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(width/2-100,panelBottom-26,200,20).build());
+ }
+ static void openChat(Screen parent,String name){
+  var mc=net.minecraft.client.Minecraft.getInstance();
+  if(mc.player==null||mc.getConnection()==null){mc.setScreen(new TextScreen(parent,Component.literal("Личное сообщение"),"Личные сообщения доступны после подключения к серверу."));return;}
+  mc.setScreen(new ChatScreen("/tell "+name+" "));
  }
  private void run(String action){var j=new JsonObject();j.addProperty("action","moderate");j.addProperty("operation",action);j.addProperty("target",Json.str(player,"uuid"));j.addProperty("reason",reason);
   if((action.equals("kick")||action.equals("ban"))&&reason.isBlank()){status=Client.tr("server.reason").getString();return;}
@@ -38,7 +43,7 @@ final class PlayerActionsScreen extends ScrollScreen {
   ModalLayer.render(parent,this,g,d,()->{super.render(g,x,y,d);
    var heading=net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(title,Math.min(500,width-40)));
    g.drawString(font,heading,(width-font.width(heading))/2,panelTop+10,0xE2BE75);
-   g.drawCenteredString(font,Component.literal(player.has("online")&&player.get("online").getAsBoolean()?"В сети":"Не в сети"),width/2,panelTop+24,AccessibilityScreen.foreground(0xAAAAAA));
+   g.drawCenteredString(font,Component.literal(player.has("online")&&player.get("online").getAsBoolean()?"В сети":"Не в сети"),width/2,panelTop+24,player.has("online")&&player.get("online").getAsBoolean()?0x79CBA6:0xEF7777);
    for(int i=firstRow;i<Math.min(rows.size(),firstRow+visibleRows);i++)if(rows.get(i).label.equals("minutes"))g.drawString(font,Client.tr("server.muteMinutes"),(width-Math.min(500,width-40))/2+78,panelTop+46+(i-firstRow)*30,AccessibilityScreen.foreground(0xEEEEEE));
    for(int i=firstRow;i<Math.min(rows.size(),firstRow+visibleRows);i++)if(rows.get(i).label.startsWith("stat:"))g.drawString(font,font.plainSubstrByWidth(rows.get(i).label.substring(5),Math.min(500,width-40)),(width-Math.min(500,width-40))/2,panelTop+46+(i-firstRow)*30,AccessibilityScreen.foreground(0xBAC7D2));
    Ui.status(g,font,status.isEmpty()?ServerMenuClient.result:status,(width-Math.min(500,width-40))/2,panelBottom-55,Math.min(500,width-40),panelBottom-30);
