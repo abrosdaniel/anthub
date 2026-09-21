@@ -38,7 +38,7 @@ final class PlayerActionsScreen extends ScrollScreen {
   minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(this);if(yes){ServerMenuClient.result="";ServerMenuClient.request(j);}},Client.tr("server.command."+action),summary));
  }
  @Override public void tick(){if(!ServerMenuClient.available()){minecraft.setScreen(null);return;}boolean reset=ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean();if(reset!=resetPermission||ServerMenuClient.state.has("actions")&&!actions.equals(ServerMenuClient.state.getAsJsonArray("actions")))rebuildWidgets();}
- @Override public void renderBackground(GuiGraphics g,int x,int y,float d){g.fill(0,0,width,height,AccessibilityScreen.background(0xBB090E14));int w=Math.min(520,width-24),left=(width-w)/2;g.fill(left,panelTop,left+w,panelBottom,AccessibilityScreen.background(0xF51B252E));}
+ @Override public void renderBackground(GuiGraphics g,int x,int y,float d){g.fill(0,0,width,height,0xBB090E14);int w=Math.min(520,width-24),left=(width-w)/2;g.fill(left,panelTop,left+w,panelBottom,AccessibilityScreen.background(0xF51B252E));}
  @Override public void render(GuiGraphics g,int x,int y,float d){
   ModalLayer.render(parent,this,g,d,()->{super.render(g,x,y,d);
    var heading=net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(title,Math.min(500,width-40)));

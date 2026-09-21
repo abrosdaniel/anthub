@@ -11,7 +11,7 @@ final class AccessibilityScreen extends Screen {
  AccessibilityScreen(Screen parent){super(Component.literal("Доступность интерфейса"));this.parent=parent;load();}
  private static Path file(){return Minecraft.getInstance().gameDirectory.toPath().resolve("anthub/accessibility.json");}
  private static void load(){if(loaded)return;loaded=true;try{if(Files.exists(file())){var j=Json.read(file());contrast=j.has("contrast")&&j.get("contrast").getAsBoolean();opaque=j.has("opaque")&&j.get("opaque").getAsBoolean();}}catch(Exception ignored){}}
- static int background(int color){load();return opaque||contrast?color|0xFF000000:color;}
+ static int background(int color){load();return opaque?color|0xFF000000:color;}
  static int foreground(int color){load();return contrast?0xFFFFFF:color;}
  private void save(){try{Json.write(file(),java.util.Map.of("contrast",contrast,"opaque",opaque));error="";}catch(Exception failure){error="Не удалось сохранить настройки";}rebuildWidgets();}
  @Override protected void init(){int w=Math.min(300,width-24),left=(width-w)/2,top=Math.max(36,height/2-60);

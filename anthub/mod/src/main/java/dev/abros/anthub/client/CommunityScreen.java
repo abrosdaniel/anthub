@@ -166,7 +166,7 @@ final class CommunityScreen extends ScrollScreen {
 
     static String statusLabel(String value){return status(value);}
     private String createLabel(){return switch(section){case "board"->"Разместить объявление";case "groups"->"Создать объединение";case "events"->"Назначить событие";case "polls"->"Создать голосование";case "ideas"->"Предложить идею";default->"Создать";};}
-    private String subtitle(){return switch(section){case "home"->"Ваши ближайшие события";case "board"->"Предложения игроков и отклики";case "groups"->"Найдите команду или соберите свою";case "events"->"Встречи, участие и совместные планы";case "polls"->"Ваш голос в решениях сообщества";case "ideas"->"Идеи игроков и ответы администрации";case "notifications"->"Ответы, приглашения и напоминания";default->name(section);};}
+    private String subtitle(){return switch(section){case "home"->"Ваша важная информация";case "board"->"Предложения игроков";case "groups"->"Найдите объединение или соберите свое";case "events"->"Встречи, участие и совместные планы";case "polls"->"Ваш голос в решениях сообщества";case "ideas"->"Идеи игроков";case "notifications"->"Ответы, приглашения и напоминания";default->name(section);};}
     private String emptyText(){return switch(section){case "home"->"Вы пока не записаны на ближайшие события.";case "board"->"Объявлений пока нет. Здесь можно найти помощь или предложить свою.";case "groups"->"Объединений пока нет. Здесь появятся команды игроков.";case "events"->"Событий пока нет. Здесь появятся предстоящие встречи.";case "polls"->"Сейчас нет голосований.";case "ideas"->"Пока нет предложений. Поделитесь идеей для сервера.";case "notifications"->"Всё прочитано. Новые ответы и приглашения появятся здесь.";default->"Пока нет записей.";};}
     private int accent(){return switch(section){case "board"->0xFFE2BE75;case "groups"->0xFF79CBA6;case "events"->0xFF82B6F2;case "polls"->0xFFB49AE8;case "ideas"->0xFFF0A77C;default->0xFF8BC7CB;};}
     private int groupTop(){return sideProfile()?276:112;}
@@ -179,10 +179,10 @@ final class CommunityScreen extends ScrollScreen {
         if(groups.isEmpty()){g.drawString(font,"Пока нет объединений",x+9,y,0xBAC7D2);return;}
         for(int n=groupScroll;n<Math.min(groups.size(),groupScroll+visible);n++){
             int rowY=y+(n-groupScroll)*stride;String label=Json.str(groups.get(n).getAsJsonObject(),"label");
-            if(sideProfile()){g.fill(x,rowY,x+w,rowY+30,0xDD1C2731);g.fill(x,rowY,x+3,rowY+30,0xFF79CBA6);}
+            if(sideProfile()){g.fill(x,rowY,x+w,rowY+30,AccessibilityScreen.background(0xDD1C2731));g.fill(x,rowY,x+3,rowY+30,0xFF79CBA6);}
             g.drawString(font,font.plainSubstrByWidth(label,w-24),x+9,rowY+(sideProfile()?10:2),0x79CBA6);
         }
-        if(groups.size()>visible){int track=visible*stride,thumb=Math.max(6,track*visible/groups.size()),start=y+(track-thumb)*groupScroll/(groups.size()-visible);g.fill(x+w-5,y,x+w-2,y+track,0x88202020);g.fill(x+w-5,start,x+w-2,start+thumb,0xFF79CBA6);}
+        if(groups.size()>visible){int track=visible*stride,thumb=Math.max(6,track*visible/groups.size()),start=y+(track-thumb)*groupScroll/(groups.size()-visible);g.fill(x+w-5,y,x+w-2,y+track,AccessibilityScreen.background(0x88202020));g.fill(x+w-5,start,x+w-2,start+thumb,0xFF79CBA6);}
     }
     @Override public void renderBackground(GuiGraphics g,int x,int y,float d){
         super.renderBackground(g,x,y,d);
