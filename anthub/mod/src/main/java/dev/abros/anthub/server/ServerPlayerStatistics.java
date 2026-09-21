@@ -42,6 +42,9 @@ final class ServerPlayerStatistics {
     private static long elapsed(Session s){return Math.max(0,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-s.nano));}
     static Map<UUID,Long> live(){Map<UUID,Long> result=new HashMap<>();sessions.forEach((id,s)->result.put(id,elapsed(s)));return Map.copyOf(result);}
     static PlayerStatistics store(){return store;}
+    static void task(Runnable task){if(writer==null||store==null)throw new IllegalArgumentException("Статистика недоступна");writer.execute(task);}
+    static PlayerStatistics.Checkpoint capture(UUID player){var s=sessions.get(player);return s==null?null:new PlayerStatistics.Checkpoint(player,s.id,s.started,Math.max(s.started,System.currentTimeMillis()),elapsed(s),s.deaths,true);}
+
     private static void save(UUID player,Session session,boolean online){
         var checkpoint=new PlayerStatistics.Checkpoint(player,session.id,session.started,Math.max(session.started,System.currentTimeMillis()),elapsed(session),session.deaths,online);
         var current=store;

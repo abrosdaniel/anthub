@@ -12,6 +12,21 @@ class AuthStoreTest {
  @Test void passwordsSaltedAndVerified(){String first=AuthSecrets.password(pass()),second=AuthSecrets.password(pass());assertNotEquals(first,second);assertTrue(AuthSecrets.verify(pass(),first));assertFalse(AuthSecrets.verify("incorrect".toCharArray(),first));assertThrows(IllegalArgumentException.class,()->AuthSecrets.password("short".toCharArray()));}
  @Test void resetAtomicRevokesDevicesAndGeneration()throws Exception{try(var db=new AuthStore(dev.abros.anthub.core.TestDatabase.database(root))){var before=db.register("Alice",UUID_A,pass(),0);var device=db.remember("Alice","Laptop",1);String token=db.invite("Moderator","Alice",2);assertEquals(0,db.account("Alice").generation());db.reset("Alice",UUID_A,token,"a different long password".toCharArray(),3);assertEquals(before.generation()+1,db.account("Alice").generation());assertEquals(0,db.devices("Alice",4).size());assertThrows(Exception.class,()->db.deviceLogin("Alice",UUID_A,device.token(),4));assertThrows(Exception.class,()->db.reset("Alice",UUID_A,token,pass(),100000));assertEquals("local",db.login("Alice",UUID_A,"a different long password".toCharArray(),200000).type());}}
  @Test void resetExpiredAndReplacedInvitationsRejected()throws Exception{try(var db=new AuthStore(dev.abros.anthub.core.TestDatabase.database(root))){db.register("Alice",UUID_A,pass(),0);String old=db.invite("console","Alice",0),fresh=db.invite("console","Alice",1);assertThrows(Exception.class,()->db.reset("Alice",UUID_A,old,pass(),10));assertThrows(Exception.class,()->db.reset("Alice",UUID_A,fresh,pass(),900002));assertEquals(0,db.account("Alice").generation());}}
+ @Test void invitationStoresOnlyHashAndAuditsIssuer()throws Exception{
+  var database=dev.abros.anthub.core.TestDatabase.database(root);
+  try(var store=new AuthStore(database)){
+   store.register("Alice",UUID_A,pass(),0);String token=store.invite("Moderator","Alice",10);
+   database.transaction(()->{
+    try(var q=database.connection().prepareStatement("SELECT hash,expires FROM auth_resets WHERE name='Alice'");var row=q.executeQuery()){
+     assertTrue(row.next());assertNotEquals(token,row.getString(1));assertEquals(AuthSecrets.digest(token),row.getString(1));assertEquals(900010,row.getLong(2));assertFalse(row.next());
+    }
+    try(var q=database.connection().prepareStatement("SELECT actor,action,target FROM auth_audit WHERE action='reset-invitation'");var row=q.executeQuery()){
+     assertTrue(row.next());assertEquals("Moderator",row.getString(1));assertEquals("reset-invitation",row.getString(2));assertEquals("Alice",row.getString(3));assertFalse(row.next());
+    }
+    return null;
+   });
+  }
+ }
  @Test void reservationStopsClaimingExistingPlayers()throws Exception{try(var db=new AuthStore(dev.abros.anthub.core.TestDatabase.database(root))){db.reserve("Alice",UUID_A);assertThrows(Exception.class,()->db.register("alice",UUID_B,pass(),0));String invite=db.invite("console","Alice",0);db.reset("Alice",UUID_A,invite,pass(),1);assertEquals("local",db.login("Alice",UUID_A,pass(),2).type());}}
  @Test void identityMismatchDoesNotOverwriteCredentials()throws Exception{try(var db=new AuthStore(dev.abros.anthub.core.TestDatabase.database(root))){db.register("Alice",UUID_A,pass(),0);assertThrows(Exception.class,()->db.login("Alice",UUID_B,pass(),1));assertEquals(UUID_A,db.account("Alice").uuid());}}
  @Test void officialCannotTakeLocalAccount()throws Exception{try(var db=new AuthStore(dev.abros.anthub.core.TestDatabase.database(root))){db.register("Alice",UUID_A,pass(),0);assertThrows(Exception.class,()->db.official("Alice",UUID_A,UUID_B,1));}}

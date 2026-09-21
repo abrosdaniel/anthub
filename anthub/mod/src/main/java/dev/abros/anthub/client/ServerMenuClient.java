@@ -101,8 +101,10 @@ public final class ServerMenuClient {
         long restart=state.has("restartAt")?state.get("restartAt").getAsLong():0;
         if(restart>0)text+=" · "+Client.tr("server.countdown",Math.max(0,(restart-System.currentTimeMillis()+999)/1000)).getString();return text;
     }
-    private static String permissions(JsonObject value){var snapshot=new JsonObject();for(String key:java.util.List.of("admin","authReset","actions","capabilities","communityConfig"))if(value.has(key))snapshot.add(key,value.get(key));if(value.has("profile")){var profile=value.getAsJsonObject("profile");if(profile.has("capabilities"))snapshot.add("profileCapabilities",profile.get("capabilities"));}return snapshot.toString();}
+    private static String permissions(JsonObject value){var snapshot=new JsonObject();for(String key:java.util.List.of("admin","staff","authReset","actions","capabilities","communityConfig"))if(value.has(key))snapshot.add(key,value.get(key));if(value.has("profile")){var profile=value.getAsJsonObject("profile");if(profile.has("capabilities"))snapshot.add("profileCapabilities",profile.get("capabilities"));}return snapshot.toString();}
     static boolean supports(String feature){return state.has("features")&&state.getAsJsonArray("features").contains(new JsonPrimitive(feature));}
+    static boolean staff(){return admin()||state.has("staff")&&state.get("staff").getAsBoolean();}
+    static boolean may(String right){return admin()||state.has("capabilities")&&state.getAsJsonObject("capabilities").has(right)&&state.getAsJsonObject("capabilities").get(right).getAsBoolean();}
     static boolean admin(){return state.has("admin")&&state.get("admin").getAsBoolean();}
     private static void saveSettings(){try{Json.write(Minecraft.getInstance().gameDirectory.toPath().resolve("anthub/menu-settings.json"),java.util.Map.of("notices",notices,"sound",sound,"restartNotices",restartNotices));}catch(Exception e){result=Errors.message(e);}}
     static String toggle(int setting){if(setting==1)sound=!sound;else if(setting==2)restartNotices=!restartNotices;else notices=!notices;saveSettings();return Client.tr(enabled(setting)?"server.on":"server.off").getString();}

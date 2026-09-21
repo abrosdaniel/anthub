@@ -59,7 +59,7 @@ public final class ServerIntegration {
 
     private static void commands(net.neoforged.neoforge.event.RegisterCommandsEvent event){
         event.getDispatcher().register(Commands.literal("ah").then(Commands.literal("project")
-            .requires(source->source.hasPermission(2)||source.getEntity() instanceof net.minecraft.server.level.ServerPlayer player&&ServerFeatures.admin(player))
+            .requires(source->ServerCommands.allowed(source,"anthub.diagnostics"))
             .then(Commands.literal("status").executes(context->{
                 var current=policy;
                 String text=current==null?"AntHub: проект ещё не загружен.":

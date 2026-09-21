@@ -18,7 +18,7 @@ final class ReportDetailScreen extends Screen implements CommunityScreen.Receive
     @Override public boolean mouseDragged(double x,double y,int b,double dx,double dy){return b==0&&pane.drag(y)||super.mouseDragged(x,y,b,dx,dy);}
     @Override public boolean mouseReleased(double x,double y,int b){pane.release();return super.mouseReleased(x,y,b);}
     public void receiveCommunity(JsonObject response){if(!session.receive(response))return;busy=false;status=Json.opt(response,"text","");if(!response.has("error")){draft.clear();attempted=null;if(response.has("report")){report.add("revision",response.getAsJsonObject("report").get("revision"));}}}
-    @Override public void tick(){if(session.timeout(System.currentTimeMillis())){busy=false;status="Нет ответа. Повторите отправку: ответ не продублируется.";}if(!ServerMenuClient.available())minecraft.setScreen(null);else if(editable&&!ServerMenuClient.admin()){session.cancel();minecraft.setScreen(parent);}}
+    @Override public void tick(){if(session.timeout(System.currentTimeMillis())){busy=false;status="Нет ответа. Повторите отправку: ответ не продублируется.";}if(!ServerMenuClient.available())minecraft.setScreen(null);else if(editable&&!ServerMenuClient.may("anthub.reports")){session.cancel();minecraft.setScreen(parent);}}
     @Override public boolean isPauseScreen(){return false;}
     @Override public void onClose(){if(reply!=null)draft.save(reply.getValue());session.cancel();minecraft.setScreen(parent);}
 }

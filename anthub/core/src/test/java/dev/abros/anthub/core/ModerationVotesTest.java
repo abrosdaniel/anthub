@@ -9,10 +9,22 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("postgres")
 class ModerationVotesTest {
  @TempDir Path temp;ModerationVotes votes;UUID initiator=UUID.randomUUID(),target=UUID.randomUUID();Set<UUID> eligible;long now;
- @BeforeEach void setup()throws Exception{votes=new ModerationVotes(TestDatabase.database(temp),new ModerationVotes.Settings(true,5,120,0,30,60,30,15,true,true,true));eligible=new HashSet<>();eligible.add(initiator);while(eligible.size()<5)eligible.add(UUID.randomUUID());now=System.currentTimeMillis();}
+ @BeforeEach void setup()throws Exception{votes=new ModerationVotes(TestDatabase.database(temp),new ModerationVotes.Settings(true,5,120,0,30,60,true,true,true));eligible=new HashSet<>();eligible.add(initiator);while(eligible.size()<5)eligible.add(UUID.randomUUID());now=System.currentTimeMillis();}
  JsonObject start(boolean protectedTarget,boolean voice,String action)throws Exception{var request=new JsonObject();request.addProperty("action","moderationVote");request.addProperty("op","start");request.addProperty("operationId",UUID.randomUUID().toString());request.addProperty("issuedAt",System.currentTimeMillis());return votes.start(initiator,target,"Target",action,"Нарушение правил",eligible,0,protectedTarget,voice,request,now);}
  @Test void thresholdsRoundUpAndRequireParticipation(){assertFalse(ModerationVotes.passed(0,0,5));assertFalse(ModerationVotes.passed(2,0,5));assertTrue(ModerationVotes.passed(3,1,5));assertFalse(ModerationVotes.passed(3,2,5));assertTrue(ModerationVotes.passed(4,2,6));}
- @Test void ballotsArePrivateAndElectorateIsFrozen()throws Exception{var view=start(false,true,"kick");String id=Json.str(view,"id");assertFalse(view.has("eligible"));assertFalse(view.has("ballots"));assertFalse(view.has("initiator"));assertThrows(IllegalArgumentException.class,()->votes.vote(UUID.randomUUID(),id,true,now+1));assertThrows(IllegalArgumentException.class,()->votes.vote(target,id,true,now+1));votes.vote(initiator,id,true,now+1);votes.vote(initiator,id,false,now+2);view=votes.current(initiator);assertEquals(0,view.get("yes").getAsInt());assertEquals(1,view.get("no").getAsInt());assertFalse(view.get("myVote").getAsBoolean());}
+ @Test void ballotsArePrivateAndTargetCannotVote()throws Exception{var view=start(false,true,"kick");String id=Json.str(view,"id");assertFalse(view.has("eligible"));assertFalse(view.has("ballots"));assertFalse(view.has("initiator"));assertThrows(IllegalArgumentException.class,()->votes.vote(target,id,true,now+1));votes.vote(initiator,id,true,now+1);votes.vote(initiator,id,false,now+2);view=votes.current(initiator);assertEquals(0,view.get("yes").getAsInt());assertEquals(1,view.get("no").getAsInt());assertFalse(view.get("myVote").getAsBoolean());}
+ @Test void playersJoiningAfterStartCanVoteWithoutChangingQuorum()throws Exception{
+  String id=Json.str(start(false,true,"kick"),"id");UUID newcomer=UUID.randomUUID();
+  assertTrue(votes.current(newcomer).get("canVote").getAsBoolean());
+  assertFalse(votes.current(target).get("canVote").getAsBoolean());
+  assertFalse(votes.current(null).get("canVote").getAsBoolean());
+  votes.vote(newcomer,id,true,now+1);votes.vote(newcomer,id,true,now+2);
+  var view=votes.current(newcomer);assertEquals(1,view.get("yes").getAsInt());assertEquals(5,view.get("eligibleCount").getAsInt());
+  votes.vote(newcomer,id,false,now+3);assertEquals(0,votes.current(newcomer).get("yes").getAsInt());
+  votes.vote(newcomer,id,true,now+4);votes.vote(initiator,id,true,now+5);votes.vote(UUID.randomUUID(),id,true,now+6);
+  assertNotNull(votes.claim(now+120001));assertFalse(votes.current(newcomer).get("canVote").getAsBoolean());
+  assertThrows(IllegalArgumentException.class,()->votes.vote(UUID.randomUUID(),id,true,now+120002));
+ }
  @Test void protectedOrUnavailableTargetsCannotStart()throws Exception{assertThrows(IllegalArgumentException.class,()->start(true,true,"ban"));assertThrows(IllegalArgumentException.class,()->start(false,false,"mute"));assertTrue(votes.current(initiator).isEmpty());}
  @Test void claimIsExactlyOnceAndFinishDoesNotOverwriteOutcome()throws Exception{String id=Json.str(start(false,true,"ban"),"id");for(UUID player:eligible)votes.vote(player,id,true,now+1);assertNull(votes.claim(now+1000));
   try(var pool=Executors.newFixedThreadPool(2)){var a=pool.submit(()->votes.claim(now+120001));var b=pool.submit(()->votes.claim(now+120001));assertEquals(1,(a.get()==null?0:1)+(b.get()==null?0:1));}
@@ -22,4 +34,5 @@ class ModerationVotesTest {
  @Test void restartDuringApplyRequiresReview()throws Exception{String id=Json.str(start(false,true,"kick"),"id");for(UUID player:eligible)votes.vote(player,id,true,now+1);assertNotNull(votes.claim(now+120001));votes.restart();assertEquals("uncertain",Json.str(votes.current(initiator),"status"));assertNull(votes.claim(now+999999));}
  @Test void restartCancelsOpenVote()throws Exception{start(false,true,"kick");votes.restart();assertEquals("cancelled",Json.str(votes.current(initiator),"status"));assertNull(votes.claim(now+999999));}
  @Test void oneActiveVoteAndNoLateBallots()throws Exception{String id=Json.str(start(false,true,"kick"),"id");assertThrows(IllegalArgumentException.class,()->start(false,true,"ban"));assertThrows(IllegalArgumentException.class,()->votes.vote(initiator,id,true,now+120000));assertNull(votes.claim(now+120001));assertEquals("rejected",Json.str(votes.current(initiator),"status"));}
+ @Test void selectedPunishmentDurationIsValidatedAndPreserved()throws Exception{var q=new JsonObject();for(int value:new int[]{0,-1,1441}){q.addProperty("minutes",value);assertThrows(IllegalArgumentException.class,()->votes.start(initiator,target,"Target","ban","Reason",eligible,0,false,true,q,now));}q.addProperty("minutes",90);var vote=votes.start(initiator,target,"Target","ban","Reason",eligible,0,false,true,q,now);assertEquals(90,vote.get("minutes").getAsInt());for(UUID player:eligible)votes.vote(player,Json.str(vote,"id"),true,now+1);assertEquals(90,votes.claim(now+120001).get("minutes").getAsInt());}
 }

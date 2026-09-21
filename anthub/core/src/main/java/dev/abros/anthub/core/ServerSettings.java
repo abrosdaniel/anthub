@@ -36,7 +36,9 @@ public final class ServerSettings {
         Map<String,Object> values,defaults;
         try{values=flatten(new TomlParser().parse(text));defaults=flatten(new TomlParser().parse(template()));}
         catch(Exception failure){throw invalid("ошибка TOML: проверьте кавычки, типы и повторяющиеся параметры (значения скрыты)");}
-        if(!values.keySet().equals(defaults.keySet()))throw invalid("набор разделов или параметров не соответствует шаблону. Старый формат не читается; заполните новый файл по SERVER_CONFIG.md");
+        // Obsolete punishment defaults are ignored, so existing production configs still load.
+        values.remove("moderationVotes.actions.banMinutes");values.remove("moderationVotes.actions.muteMinutes");
+        if(!values.keySet().equals(defaults.keySet()))throw invalid("набор разделов или параметров не соответствует шаблону. Старый формат не читается; заполните новый файл по README, раздел «Настройки сервера»");
         for(var e:defaults.entrySet()){
             Object v=values.get(e.getKey()),d=e.getValue();
             if(d instanceof String&&!(v instanceof String)||d instanceof Boolean&&!(v instanceof Boolean)||d instanceof Number&&!(v instanceof Integer||v instanceof Long)||d instanceof List&&!(v instanceof List))throw invalid("неверный тип поля "+e.getKey());
@@ -65,7 +67,7 @@ public final class ServerSettings {
         return new DatabaseSettings(text("database.host"),number("database.port"),text("database.database"),text("database.username"),password,text("database.sslMode"),text("database.sslRootCert"),number("database.poolSize"));
     }
     public PlayerStatistics.Settings statistics(){return new PlayerStatistics.Settings(flag("statistics.firstJoin"),flag("statistics.lastActivity"),flag("statistics.totalPlayTime"),flag("statistics.currentSession"),flag("statistics.deaths"));}
-    public ModerationVotes.Settings votes(){return new ModerationVotes.Settings(flag("moderationVotes.enabled"),number("moderationVotes.minimumPlayers"),number("moderationVotes.durationSeconds"),number("moderationVotes.minimumPlayMinutes"),number("moderationVotes.initiatorCooldownMinutes"),number("moderationVotes.targetCooldownMinutes"),number("moderationVotes.actions.banMinutes"),number("moderationVotes.actions.muteMinutes"),flag("moderationVotes.actions.kick"),flag("moderationVotes.actions.ban"),flag("moderationVotes.actions.mute"));}
+    public ModerationVotes.Settings votes(){return new ModerationVotes.Settings(flag("moderationVotes.enabled"),number("moderationVotes.minimumPlayers"),number("moderationVotes.durationSeconds"),number("moderationVotes.minimumPlayMinutes"),number("moderationVotes.initiatorCooldownMinutes"),number("moderationVotes.targetCooldownMinutes"),flag("moderationVotes.actions.kick"),flag("moderationVotes.actions.ban"),flag("moderationVotes.actions.mute"));}
     public JsonObject community(){var j=new JsonObject();j.addProperty("groupsTitle",text("community.groupsTitle"));j.addProperty("maxMemberships",number("community.maxMemberships"));for(String key:List.of("categories","groupTypes","sections")){var a=new JsonArray();for(Object v:(List<?>)values.get("community."+key)){if(!(v instanceof String s))throw invalid("community."+key+": ожидаются строки");a.add(s);}j.add(key,a);}return CommunityStore.validateConfig(j);}
     public JsonObject menu(){var j=new JsonObject();var a=new JsonArray();for(Object v:(List<?>)values.get("menu.links")){if(!(v instanceof UnmodifiableConfig c))throw invalid("menu.links: ожидаются name и url");var link=new JsonObject();for(var e:c.entrySet()){if(!(e.getValue() instanceof String s))throw invalid("menu.links: ожидаются строки");link.addProperty(e.getKey(),s);}a.add(link);}j.add("links",a);return ServerMenuData.validate(j);}
     private static IllegalArgumentException invalid(String detail){return new IllegalArgumentException("AntHub: config/anthub-server.toml — "+detail+". Запуск остановлен.");}

@@ -14,7 +14,7 @@ public final class LuckPermsAdapter {
             Object metadata=cachedType.getMethod("getMetaData").invoke(cached);Class<?> metaType=Class.forName("net.luckperms.api.cacheddata.CachedMetaData");
             for(String key:new String[]{"Prefix","Suffix"}){Object v=metaType.getMethod("get"+key).invoke(metadata);if(v!=null)result.addProperty(key.toLowerCase(),v.toString().substring(0,Math.min(512,v.toString().length())));}
             Object permission=cachedType.getMethod("getPermissionData").invoke(cached);Class<?> permissionType=Class.forName("net.luckperms.api.cacheddata.CachedPermissionData");
-            for(String key:new String[]{"anthub.admin","anthub.events","anthub.auth.reset","anthub.vote.protected"}){Object tristate=permissionType.getMethod("checkPermission",String.class).invoke(permission,key);capabilities.addProperty(key,tristate.toString().equals("TRUE"));}
+            for(String key:new String[]{"anthub.admin","anthub.events","anthub.auth.reset","anthub.vote.protected","anthub.stats.edit","anthub.stats.view","anthub.announce","anthub.maintenance","anthub.restart","anthub.reports","anthub.diagnostics"}){Object tristate=permissionType.getMethod("checkPermission",String.class).invoke(permission,key);capabilities.addProperty(key,tristate.toString().equals("TRUE"));}
         result.addProperty("available",true);
         }catch(ReflectiveOperationException|LinkageError|RuntimeException ignored){result.remove("available");for(String key:capabilities.keySet())capabilities.addProperty(key,false); /* Partial API failure must never grant rights or remove vote protection. */ }
         return result;

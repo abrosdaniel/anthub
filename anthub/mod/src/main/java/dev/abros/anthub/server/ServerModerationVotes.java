@@ -17,7 +17,7 @@ final class ServerModerationVotes {
   NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.tick.ServerTickEvent.Post e)->tick(e.getServer()));
   NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppingEvent e)->votes=null);
  }
- static JsonObject configuration(MinecraftServer server){var j=new JsonObject();if(votes==null)return j;var s=votes.settings();j.addProperty("enabled",s.enabled());j.addProperty("minimumPlayers",s.minimumPlayers());j.addProperty("minimumPlayMinutes",s.minimumPlayMinutes());j.addProperty("durationSeconds",s.durationSeconds());j.addProperty("banMinutes",s.banMinutes());j.addProperty("muteMinutes",s.muteMinutes());var actions=new JsonArray();if(s.kick())actions.add("kick");if(s.ban())actions.add("ban");if(s.mute()&&voiceAvailable(server))actions.add("mute");j.add("actions",actions);return j;}
+ static JsonObject configuration(MinecraftServer server){var j=new JsonObject();if(votes==null)return j;var s=votes.settings();j.addProperty("enabled",s.enabled());j.addProperty("minimumPlayers",s.minimumPlayers());j.addProperty("minimumPlayMinutes",s.minimumPlayMinutes());j.addProperty("durationSeconds",s.durationSeconds());j.addProperty("banMinutes",30);j.addProperty("muteMinutes",15);j.addProperty("maximumPunishmentMinutes",1440);var actions=new JsonArray();if(s.kick())actions.add("kick");if(s.ban())actions.add("ban");if(s.mute()&&voiceAvailable(server))actions.add("mute");j.add("actions",actions);return j;}
  private static boolean voiceAvailable(MinecraftServer server){return PlasmoVoiceAdapter.available();}
  private static boolean protectedPlayer(MinecraftServer server,UUID id,String name){
   if(server.getPlayerList().isOp(new GameProfile(id,name)))return true;

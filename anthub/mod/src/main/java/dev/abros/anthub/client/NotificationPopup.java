@@ -19,7 +19,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
     private final dev.abros.anthub.core.RequestSession session=new dev.abros.anthub.core.RequestSession();
     private int page, loadedPage, refreshThrough;
     private long sent, dirtyAt, nextAt;
-    private JsonObject target;
+    private JsonObject target;private JsonObject preferences=new JsonObject();
 
     NotificationPopup(Screen parent) { super(Component.literal("Уведомления")); this.parent = parent; }
     void invalidate() { if (dirtyAt == 0) dirtyAt = System.currentTimeMillis(); }
@@ -50,13 +50,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
             send("read", "");
         }).bounds(x + 10, bottom() - 76, (w - 24)/2, 20).build());
         var retry=addRenderableWidget(Button.builder(Component.literal("Повторить"),b->{if(busy||!failed)return;failed=false;busy=true;sent=System.currentTimeMillis();var j=session.retry(sent);request=Json.str(j,"request");ServerMenuClient.request(j);rebuildWidgets();}).bounds(x+14+(w-24)/2,bottom()-76,(w-24)/2,20).build());retry.active=failed&&!busy;
-        int half = (w - 24) / 2;
-        addRenderableWidget(Button.builder(Component.literal("Звук: " + (ServerMenuClient.enabled(1) ? "вкл" : "выкл")), b -> {
-            ServerMenuClient.toggle(1); rebuildWidgets();
-        }).bounds(x + 10, bottom() - 52, half, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Плашки: " + (ServerMenuClient.enabled(0) ? "вкл" : "выкл")), b -> {
-            ServerMenuClient.toggle(0); rebuildWidgets();
-        }).bounds(x + 14 + half, bottom() - 52, half, 20).build());
+        var settings=addRenderableWidget(Button.builder(Component.literal("Настройки уведомлений"),b->minecraft.setScreen(new CommunityPreferences(this,preferences))).bounds(x+10,bottom()-52,w-20,20).build());settings.active=preferences.has("muted");
         addRenderableWidget(Button.builder(Component.literal("Закрыть"), b -> onClose()).bounds(x + 10, bottom() - 28, w - 20, 20).build());
         if (!started) { started = true; send("list", ""); }
     }
@@ -74,6 +68,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
 
     @Override public void receiveCommunity(JsonObject j) {
         if (!session.receive(j)) return;
+        if(j.has("preferences"))preferences=j.getAsJsonObject("preferences").deepCopy();
         busy = false;
         if (j.has("error")) { status = Json.opt(j, "text", "Ошибка"); failed=true; nextAt = 0; rebuildWidgets();return; }
         JsonArray found = j.getAsJsonArray("entries");
