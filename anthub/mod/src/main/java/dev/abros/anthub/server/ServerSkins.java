@@ -41,6 +41,7 @@ public final class ServerSkins {
      case "blob"->{String hash=Json.str(input,"hash");byte[] png=current.bytes(hash);var parts=new ArrayList<JsonObject>();for(int offset=0;offset<png.length;offset+=4096){var out=new JsonObject();out.addProperty("kind","blob");out.addProperty("hash",hash);out.addProperty("offset",offset);out.addProperty("size",png.length);out.addProperty("data",Base64.getEncoder().encodeToString(Arrays.copyOfRange(png,offset,Math.min(png.length,offset+4096))));parts.add(out);}server.execute(()->{if(store==current)for(var part:parts)send(p,part);});return;}
      case "appearance","list"->{var activeSettings=settings;FALLBACK.execute(()->{try{if(store!=current)return;if(!refreshFallback(current,activeSettings,lookup,nickname,official))return;var updated=current.appearance(lookup);updated.addProperty("kind","appearance");server.execute(()->{if(store==current)for(var other:server.getPlayerList().getPlayers())if(ServerIntegration.supports(other,"skins"))send(other,updated);});}catch(Exception ignored){}});}
      case "upload"->current.upload(p.getUUID(),Json.str(input,"name"),input.get("slim").getAsBoolean(),bytes);
+     case "rename"->current.rename(p.getUUID(),Json.str(input,"id"),Json.str(input,"name"));
      case "select","delete","model"->current.change(p.getUUID(),operation,Json.opt(input,"id",""),input.has("slim")&&input.get("slim").getAsBoolean());
      default->throw new IllegalArgumentException("Неизвестное действие");
     }
