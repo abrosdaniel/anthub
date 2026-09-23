@@ -20,3 +20,5 @@ anthub/deploy/.env
 
 # Local release output
 /dist/
+
+**/run-skin-smoke-*/

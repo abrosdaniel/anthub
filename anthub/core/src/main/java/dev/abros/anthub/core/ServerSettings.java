@@ -52,7 +52,7 @@ public final class ServerSettings {
     public int number(String key){return Math.toIntExact(((Number)values.get(key)).longValue());}
     private void range(String key,int min,int max){long n=((Number)values.get(key)).longValue();if(n<min||n>max)throw invalid(key+": допустимо "+min+"–"+max);}
     private void validate(){
-        range("connection.handshakeTimeoutSeconds",3,60);range("auth.minimumPasswordLength",6,128);
+        skins();range("connection.handshakeTimeoutSeconds",3,60);range("auth.minimumPasswordLength",6,128);
         range("database.port",1,65535);range("database.poolSize",2,32);
         if(!Set.of("false","base","hybrid").contains(text("auth.mode")))throw invalid("auth.mode: ожидается строка false, base или hybrid");
         if(text("menu.helpText").length()>2000)throw invalid("menu.helpText: максимум 2000 символов");
@@ -66,6 +66,7 @@ public final class ServerSettings {
         if(password==null||password.isBlank())throw invalid("заполните database.password или заданную переменную database.passwordEnvironment");
         return new DatabaseSettings(text("database.host"),number("database.port"),text("database.database"),text("database.username"),password,text("database.sslMode"),text("database.sslRootCert"),number("database.poolSize"));
     }
+    public dev.abros.anthub.core.skins.SkinSettings skins(){return new dev.abros.anthub.core.skins.SkinSettings(flag("skins.enabled"),number("skins.maxFileSizeMiB"),number("skins.maxSkinsPerPlayer"),text("skins.mojangFallback"));}
     public PlayerStatistics.Settings statistics(){return new PlayerStatistics.Settings(flag("statistics.firstJoin"),flag("statistics.lastActivity"),flag("statistics.totalPlayTime"),flag("statistics.currentSession"),flag("statistics.deaths"));}
     public ModerationVotes.Settings votes(){return new ModerationVotes.Settings(flag("moderationVotes.enabled"),number("moderationVotes.minimumPlayers"),number("moderationVotes.durationSeconds"),number("moderationVotes.minimumPlayMinutes"),number("moderationVotes.initiatorCooldownMinutes"),number("moderationVotes.targetCooldownMinutes"),flag("moderationVotes.actions.kick"),flag("moderationVotes.actions.ban"),flag("moderationVotes.actions.mute"));}
     public JsonObject community(){var j=new JsonObject();j.addProperty("groupsTitle",text("community.groupsTitle"));j.addProperty("maxMemberships",number("community.maxMemberships"));for(String key:List.of("categories","groupTypes","sections")){var a=new JsonArray();for(Object v:(List<?>)values.get("community."+key)){if(!(v instanceof String s))throw invalid("community."+key+": ожидаются строки");a.add(s);}j.add(key,a);}return CommunityStore.validateConfig(j);}

@@ -48,7 +48,7 @@ class DatabaseReliabilityTest {
             DatabaseMigrations.apply(db);return null;
         }));
         db.transaction(()->{DatabaseMigrations.apply(db);return null;});
-        assertEquals(2,scalar("SELECT count(*) FROM schema_versions"));
+        assertEquals(3,scalar("SELECT count(*) FROM schema_versions"));
     }
     @Test void newerDatabaseIsRejectedAndTransactionIsCleanedUp() throws Exception {
         assertThrows(IllegalStateException.class,()->db.transaction(()->{
@@ -57,19 +57,19 @@ class DatabaseReliabilityTest {
             }
             DatabaseMigrations.apply(db);return null;
         }));
-        assertEquals(2,scalar("SELECT max(version) FROM schema_versions"));
+        assertEquals(3,scalar("SELECT max(version) FROM schema_versions"));
     }
     @Test void migrationSqlFailureRollsBackEarlierDdl() throws Exception {
         assertThrows(SQLException.class,()->db.transaction(()->{
             try(var statement=db.connection().createStatement()) {
                 statement.execute("CREATE TABLE migration_rollback_probe(id INT)");
                 // Force the pending migration to encounter its already existing table.
-                statement.executeUpdate("DELETE FROM schema_versions WHERE version=2");
+                statement.executeUpdate("DELETE FROM schema_versions WHERE version=3");
             }
             DatabaseMigrations.apply(db);return null;
         }));
         assertEquals(0,scalar("SELECT count(*) FROM pg_tables WHERE schemaname='anthub' AND tablename='migration_rollback_probe'"));
-        assertEquals(2,scalar("SELECT count(*) FROM schema_versions"));
+        assertEquals(3,scalar("SELECT count(*) FROM schema_versions"));
         db.transaction(()->{DatabaseMigrations.apply(db);return null;});
     }
     @Test void menuLoadLeavesConnectionsForAuth() throws Exception {

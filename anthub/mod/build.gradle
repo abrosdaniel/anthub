@@ -29,7 +29,7 @@ if (project.hasProperty('anthubPackaged')) {
     tasks.register('installTestBundle', Copy) {
         dependsOn ':bootstrap:jar'
         from(project(':bootstrap').tasks.named('jar'))
-        into file('run-packaged-server/mods')
+        into file(project.hasProperty('anthubSkinSmoke') ? 'run-skin-smoke-server/mods' : 'run-packaged-server/mods')
     }
     tasks.matching { it.name == 'prepareServerRun' }.configureEach { dependsOn 'installTestBundle' }
 }
@@ -56,4 +56,8 @@ dependencies {
 // Explicit developer build only: fixtures are not included in release artifacts.
 if (project.hasProperty('anthubUiHarness')) {
     sourceSets.main.java.srcDir 'src/uiHarness/java'
+}
+
+if (project.hasProperty('anthubSkinSmoke')) {
+    neoForge.runs.configureEach { gameDirectory = file('run-skin-smoke-' + name) }
 }

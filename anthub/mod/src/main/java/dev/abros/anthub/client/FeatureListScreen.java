@@ -73,13 +73,13 @@ final class FeatureListScreen extends ScrollScreen {
         int x=width-222;g.fill(x,38,width-20,height-42,AccessibilityScreen.background(0xCE1B252E));g.fill(x,38,width-20,41,AccessibilityScreen.background(0xFF82B6F2));
         if(selectedPlayer==null){Ui.status(g,font,"Выберите игрока слева, чтобы открыть его карточку.",x+12,62,178,height-78);return;}
         var info=minecraft.getConnection()==null?null:minecraft.getConnection().getPlayerInfo(java.util.UUID.fromString(Json.str(selectedPlayer,"uuid")));
-        if(info!=null)PlayerFaceRenderer.draw(g,info.getSkin(),x+12,54,32);
+        PlayerFaceRenderer.draw(g,SkinClient.skin(java.util.UUID.fromString(Json.str(selectedPlayer,"uuid"))),x+12,54,32);
         g.drawString(font,net.minecraft.locale.Language.getInstance().getVisualOrder(font.substrByWidth(PlayerText.name(selectedPlayer),140)),x+52,58,0xFFFFFF);
         g.drawString(font,selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean()?"В сети":"Не в сети",x+52,74,selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean()?0x79CBA6:0xEF7777);
         if(info!=null)g.drawString(font,"Пинг: "+info.getLatency()+" мс",x+12,104,AccessibilityScreen.foreground(0xBAC7D2));
         int statY=122;for(String line:PlayerStatisticsText.lines(selectedPlayer)){g.drawString(font,font.plainSubstrByWidth(line,178),x+12,statY,AccessibilityScreen.foreground(0xBAC7D2));statY+=14;}
     }}
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);if(kind.equals("players")&&minecraft.getConnection()!=null)for(int i=firstRow;i<Math.min(entries.size(),firstRow+visibleRows);i++){var player=entries.get(i).getAsJsonObject();var info=minecraft.getConnection().getPlayerInfo(java.util.UUID.fromString(Json.str(player,"uuid")));if(info!=null)net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g,info.getSkin(),nav.left(),72+(i-firstRow)*28,20);}g.drawCenteredString(font,title,width/2,16,0xE2BE75);if(!status.isEmpty())g.drawCenteredString(font,status,width/2,height-66,AccessibilityScreen.foreground(0xEEEEEE));}
+    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);if(kind.equals("players")&&minecraft.getConnection()!=null)for(int i=firstRow;i<Math.min(entries.size(),firstRow+visibleRows);i++){var player=entries.get(i).getAsJsonObject();var info=minecraft.getConnection().getPlayerInfo(java.util.UUID.fromString(Json.str(player,"uuid")));net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g,SkinClient.skin(java.util.UUID.fromString(Json.str(player,"uuid"))),nav.left(),72+(i-firstRow)*28,20);}g.drawCenteredString(font,title,width/2,16,0xE2BE75);if(!status.isEmpty())g.drawCenteredString(font,status,width/2,height-66,AccessibilityScreen.foreground(0xEEEEEE));}
     @Override public boolean isPauseScreen(){return false;}
     @Override public void onClose(){minecraft.setScreen(parent);}
 }

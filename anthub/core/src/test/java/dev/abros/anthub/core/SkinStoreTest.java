@@ -1,0 +1,13 @@
+package dev.abros.anthub.core;
+import dev.abros.anthub.core.skins.*;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Path;
+import java.util.UUID;
+import static org.junit.jupiter.api.Assertions.*;
+@Tag("postgres") class SkinStoreTest {
+ @TempDir Path temp;
+ @Test void ownershipDedupAndActualDeletion()throws Exception{var db=TestDatabase.database(temp);var s=new SkinStore(db,new SkinSettings(true,1,2,"false"));var a=UUID.randomUUID();var b=UUID.randomUUID();byte[] png=SkinImageTest.png(64,64);s.upload(a,"A",false,png);s.upload(b,"B",true,png);var entry=s.library(a).getAsJsonArray("entries").get(0).getAsJsonObject();String id=Json.str(entry,"id"),hash=Json.str(entry,"hash");assertThrows(IllegalArgumentException.class,()->s.change(b,"delete",id,false));s.change(a,"delete",id,false);assertEquals("",Json.str(s.appearance(a),"active"));assertTrue(s.bytes(hash).length>0);String second=Json.str(s.library(b).getAsJsonArray("entries").get(0).getAsJsonObject(),"id");s.change(b,"delete",second,false);assertThrows(IllegalArgumentException.class,()->s.bytes(hash));}
+ @Test void quotaDuplicateResetAndFallback()throws Exception{var db=TestDatabase.database(temp);var s=new SkinStore(db,new SkinSettings(true,1,1,"nickname"));var a=UUID.randomUUID();s.upload(a,"A",false,SkinImageTest.png(64,64));s.upload(a,"Again",true,SkinImageTest.png(64,64));assertEquals(1,s.library(a).getAsJsonArray("entries").size());assertThrows(IllegalArgumentException.class,()->s.upload(a,"Second",false,SkinImageTest.png(64,32)));s.fallback(a,"nickname:A",SkinImageTest.png(64,32),true,123);s.change(a,"select","",false);assertTrue(s.appearance(a).get("slim").getAsBoolean());assertEquals(123,s.checked(a,"nickname:A"));assertEquals(0,s.checked(a,"UUID:A"));s.fallback(a,"false:",null,false,124);assertEquals("",Json.str(s.appearance(a),"hash"));}
+ @Test void disabledStoreCannotMutate()throws Exception{var s=new SkinStore(TestDatabase.database(temp),new SkinSettings(false,1,2,"false"));assertThrows(IllegalArgumentException.class,()->s.upload(UUID.randomUUID(),"A",false,SkinImageTest.png(64,64)));assertThrows(IllegalArgumentException.class,()->s.change(UUID.randomUUID(),"select","",false));}
+}

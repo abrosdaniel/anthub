@@ -27,7 +27,8 @@ public final class ServerIntegration {
     public static boolean supports(net.minecraft.server.level.ServerPlayer player,String feature){return FEATURES.getOrDefault(player.connection.getConnection(),Set.of()).contains(feature);}
     public static void install(IEventBus bus,ModContainer container){
         bus.addListener(ServerIntegration::tasks);
-        ServerDatabase.install();AuthServer.install(bus,container);ServerFeatures.install();ServerUpdateNotice.install();
+        ServerDatabase.install();
+        ServerSkins.install();AuthServer.install(bus,container);ServerFeatures.install();ServerUpdateNotice.install();
         NeoForge.EVENT_BUS.addListener(ServerIntegration::starting);
         NeoForge.EVENT_BUS.addListener(ServerIntegration::commands);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent event)->{policy=null;NONCES.clear();FEATURES.clear();});

@@ -52,6 +52,16 @@ totalPlayTime = true
 currentSession = true
 deaths = true
 
+[skins]
+# Библиотека и синхронизация скинов игроков.
+enabled = true
+# Максимум загружаемого PNG в МиБ: 1–16. Разрешение: 64×64 или 64×32.
+maxFileSizeMiB = 1
+# Сохранённых скинов на игрока: 1–5. «Обычный» место не занимает.
+maxSkinsPerPlayer = 2
+# "false" — стандартный; "UUID" — подтверждённый Mojang UUID; "nickname" — поиск по нику.
+mojangFallback = "false"
+
 [moderationVotes]
 # По умолчанию выключены; защищённые игроки не могут быть целью.
 enabled = false

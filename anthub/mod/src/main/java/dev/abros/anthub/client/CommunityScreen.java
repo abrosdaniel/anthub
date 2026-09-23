@@ -126,6 +126,7 @@ final class CommunityScreen extends ScrollScreen {
             int by=sideProfile()?py+140:py+44;
             int half=(pw-18)/2;
 
+            if(SkinClient.available()){var skinButton=addRenderableWidget(new Button(px+9,by,20,20,Component.literal(""),b->SkinsScreen.open(this),supplier->Component.literal("Скины")){@Override public void renderWidget(GuiGraphics g,int x,int y,float d){super.renderWidget(g,x,y,d);g.blitSprite(net.minecraft.resources.ResourceLocation.withDefaultNamespace("icon/accessibility"),getX()+2,getY()+2,16,16);}});skinButton.setTooltip(Tooltip.create(Component.literal("Скины")));}
             if(AuthClient.available())button("Безопасность",px+12+half,by,half,()->AuthAccountScreen.open(this));
         }
         int top=contentTop();

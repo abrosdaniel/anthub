@@ -32,6 +32,7 @@ public final class ServerMenuClient {
     private static boolean notices=true,sound=true,restartNotices=true;
     public static void install(IEventBus bus){
         AuthClient.install();
+        SkinClient.install();
         bus.addListener((net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent e)->e.register(OPEN));
         NeoForge.EVENT_BUS.addListener(ServerMenuClient::tick);
         NeoForge.EVENT_BUS.addListener(ServerMenuClient::screen);
