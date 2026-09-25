@@ -1,1 +1,1 @@
-{"required":true,"minVersion":"0.8","package":"dev.abros.anthub.mixin","compatibilityLevel":"JAVA_21","mixins":["LoginIdentityMixin","ProfileLookupMixin"],"injectors":{"defaultRequire":1},"client":["PlayerSkinMixin"]}
+{"required":true,"minVersion":"0.8","package":"dev.abros.anthub.mixin","compatibilityLevel":"JAVA_21","mixins":["LoginIdentityMixin","ProfileLookupMixin"],"injectors":{"defaultRequire":1},"client":["PlayerSkinMixin","SkinManagerMixin"]}

@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter;
 final class FeatureListScreen extends ScrollScreen {
     private final java.util.Map<Integer,String> cursors=new java.util.HashMap<>();private JsonObject selectedPlayer;private long dirtyAt,lastLoad;private boolean busy,more;private int loadedPage,refreshThrough;private long nextAt;private final java.util.NavigableMap<Integer,JsonArray> batches=new java.util.TreeMap<>();
     void invalidate(){if(dirtyAt==0)dirtyAt=System.currentTimeMillis();}
-    private boolean splitPlayers(){return kind.equals("players")&&selection==null&&height>=390&&width-nav.left()>=460;}
+    private boolean splitPlayers(){return kind.equals("players")&&selection==null&&height>=520&&width-nav.left()>=460;}
     private int listWidth(){return width-nav.left()-20-(splitPlayers()?220:0);}
     private String requestId="";private String focusReport="";private final MenuSidebar nav=new MenuSidebar(this);private java.util.function.Consumer<JsonObject> selection;private String query="";private boolean allPlayers;private final Screen parent;final String kind;private JsonArray entries=new JsonArray(),actions=new JsonArray();private int page;private String status="";
     FeatureListScreen(Screen parent,String kind){super(Client.tr("server."+kind));this.parent=parent;this.kind=kind;}
@@ -24,12 +24,12 @@ final class FeatureListScreen extends ScrollScreen {
     void receive(JsonObject j){
         if(!requestId.equals(Json.opt(j,"request","")))return;
         if(j.has("page")&&j.get("page").getAsInt()!=page)return;
-        busy=false;String selectedId=selectedPlayer==null?"":Json.str(selectedPlayer,"uuid");entries=j.has("menu")?j.getAsJsonObject("menu").getAsJsonArray(kind):j.getAsJsonArray(kind.equals("history")?"entries":kind.equals("players")?"players":"reports");
+        var previousEntries=entries;var previousActions=actions;busy=false;String selectedId=selectedPlayer==null?"":Json.str(selectedPlayer,"uuid");entries=j.has("menu")?j.getAsJsonObject("menu").getAsJsonArray(kind):j.getAsJsonArray(kind.equals("history")?"entries":kind.equals("players")?"players":"reports");
 
         String next=Json.opt(j,"nextCursor","");cursors.put(page+1,next);boolean cursorPaging=j.has("nextCursor");batches.put(page,entries.deepCopy());loadedPage=Math.max(loadedPage,page);int size=kind.equals("players")?20:kind.equals("history")?10:5;if(cursorPaging?next.isEmpty():entries.size()<size){batches.tailMap(page,false).clear();loadedPage=page;refreshThrough=Math.min(refreshThrough,page);}if(page==loadedPage)more=cursorPaging?!next.isEmpty():entries.size()==size;nextAt=page<refreshThrough?System.currentTimeMillis()+600:0;entries=new JsonArray();var ids=new java.util.HashSet<String>();for(var batch:batches.values())for(var entry:batch){var item=entry.getAsJsonObject();String id=Json.opt(item,"uuid",Json.opt(item,"id",entry.toString()));if(ids.add(id))entries.add(entry);}
         if(!selectedId.isEmpty()){selectedPlayer=null;for(var entry:entries)if(Json.opt(entry.getAsJsonObject(),"uuid","").equals(selectedId))selectedPlayer=entry.getAsJsonObject();}
         if(!focusReport.isEmpty()&&entries.size()==1){focusReport="";minecraft.setScreen(new ReportDetailScreen(parent,entries.get(0).getAsJsonObject(),false));return;}
-        if(j.has("actions"))actions=j.getAsJsonArray("actions");status=entries.isEmpty()?Client.tr("content.empty").getString():"";rebuildWidgets();
+        if(j.has("actions"))actions=j.getAsJsonArray("actions");status=entries.isEmpty()?Client.tr("content.empty").getString():"";if(!previousEntries.equals(entries)||!previousActions.equals(actions))rebuildWidgets();
     }
     void failure(String text){busy=false;nextAt=0;status=text;}
     private void reset(){if(busy)return;batches.clear();cursors.clear();loadedPage=refreshThrough=0;nextAt=0;resetScroll();load(0);}
@@ -45,13 +45,14 @@ final class FeatureListScreen extends ScrollScreen {
             int x=width-222,wPanel=202;
             int actionY=132+PlayerStatisticsText.lines(selectedPlayer).size()*14;
             int half=(wPanel-20)/2;boolean online=selectedPlayer.has("online")&&selectedPlayer.get("online").getAsBoolean();
-            if(online&&actions.contains(new JsonPrimitive("tell")))addRenderableWidget(Button.builder(Component.literal("Написать"),b->PlayerActionsScreen.openChat(this,Json.str(selectedPlayer,"name"))).bounds(x+8,actionY,half,20).build());
+            boolean self=Json.str(selectedPlayer,"uuid").equals(Json.opt(ServerMenuClient.state,"uuid",""));
+            if(!self){if(online&&actions.contains(new JsonPrimitive("tell")))addRenderableWidget(Button.builder(Component.literal("Написать"),b->PlayerActionsScreen.openChat(this,Json.str(selectedPlayer,"name"))).bounds(x+8,actionY,half,20).build());
             addRenderableWidget(Button.builder(Component.literal("Пожаловаться"),b->minecraft.setScreen(new ReportScreen(this,"Игрок: "+Json.str(selectedPlayer,"name")+"\n"))).bounds(x+12+half,actionY,half,20).build());
             addRenderableWidget(Button.builder(Component.literal("Пригласить в объединение"),b->CommunityScreen.invite(this,selectedPlayer)).bounds(x+8,actionY+24,wPanel-16,20).build());
-            boolean moderation=false;for(var action:actions)if(!action.getAsString().equals("tell"))moderation=true;
+            }boolean moderation=ServerMenuClient.admin()||(AuthClient.available()&&ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean());for(var action:actions)if(!action.getAsString().equals("tell"))moderation=true;
             int nextActionY=actionY+48;
+            if(!self&&CommunityScreen.plus()){addRenderableWidget(Button.builder(Component.literal("Общение…"),b->PersonalProfileScreen.ignores(this,Json.str(selectedPlayer,"name"))).bounds(x+8,nextActionY,wPanel-16,20).build());nextActionY+=24;}
             if(moderation){addRenderableWidget(Button.builder(Component.literal("Модерация…"),b->minecraft.setScreen(new PlayerActionsScreen(this,selectedPlayer,actions,true))).bounds(x+8,nextActionY,wPanel-16,20).build());nextActionY+=24;}
-            if(AuthClient.available()&&ServerMenuClient.state.has("authReset")&&ServerMenuClient.state.get("authReset").getAsBoolean()){addRenderableWidget(Button.builder(Component.literal("Сброс доступа…"),b->AuthAccountScreen.invite(this,Json.str(selectedPlayer,"name"))).bounds(x+8,nextActionY,wPanel-16,20).build());nextActionY+=24;}
             if(ModerationVoteScreen.enabled()&&!Json.str(selectedPlayer,"uuid").equals(Json.opt(ServerMenuClient.state,"uuid","")))addRenderableWidget(Button.builder(Component.literal("Голосование о нарушении…"),b->minecraft.setScreen(new ModerationVoteScreen(this,selectedPlayer))).bounds(x+8,nextActionY,wPanel-16,20).build());
 
         }

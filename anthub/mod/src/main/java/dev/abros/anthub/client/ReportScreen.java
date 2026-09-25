@@ -22,7 +22,8 @@ final class ReportScreen extends Screen implements CommunityScreen.Receiver {
     ReportScreen(Screen parent,String initial){super(initial.startsWith("Игрок: ")?Component.literal("Жалоба на игрока"):Client.tr("server.report"));this.parent=parent;this.initial=initial;draft=new TextDraft("report:"+initial);}
     private int panelHeight(){return Math.min(270,height-20);}
     private int top(){return (height-panelHeight())/2;}
-    @Override protected void init(){
+    @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(460,width-32),top(),top()+panelHeight());}
+ @Override protected void init(){
         String text=message==null?draft.load(""):message.getValue();
         // Older drafts included the target in the message itself.
         if(!initial.isEmpty()&&text.startsWith(initial))text=text.substring(initial.length());

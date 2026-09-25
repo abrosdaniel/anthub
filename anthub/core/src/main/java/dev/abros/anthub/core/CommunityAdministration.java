@@ -18,7 +18,7 @@ public final class CommunityAdministration {
   try{
    try{Files.setPosixFilePermissions(path,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}catch(UnsupportedOperationException ignored){}
    db.communityTransaction(()->{
-    try(var q=db.connection().prepareStatement("SELECT section,body FROM documents WHERE section IN ('board','groups','events') ORDER BY sequence")){q.setFetchSize(100);
+    try(var q=db.connection().prepareStatement("SELECT section,body FROM community_documents WHERE section IN ('board','groups','events') ORDER BY sequence")){q.setFetchSize(100);
      try(var rows=q.executeQuery();var out=Files.newBufferedWriter(path,StandardCharsets.UTF_8)){
       long bytes=0;while(rows.next()){var row=new JsonObject();row.addProperty("section",rows.getString(1));row.add("document",Json.parse(rows.getString(2)));String encoded=row.toString();bytes+=encoded.getBytes(StandardCharsets.UTF_8).length+1;if(bytes>64L*1024*1024)throw new IllegalStateException("Экспорт превышает 64 МиБ; используйте резервную копию PostgreSQL");out.write(encoded);out.newLine();}
      }

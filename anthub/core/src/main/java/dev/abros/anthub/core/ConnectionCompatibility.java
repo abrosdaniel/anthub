@@ -4,7 +4,7 @@ import java.util.*;
 /** Stable connection envelope. New B features are optional names, never required fields. */
 public final class ConnectionCompatibility {
     private ConnectionCompatibility(){}
-    public static final Set<String> FEATURES=Set.of("menu","auth","pack","home","players","board","groups","events","polls","ideas","notifications","info","help","admin","player-statistics","admin-tools","moderation-votes","moderation-vote-duration","skins","skin-names");
+    public static final Set<String> FEATURES=Set.of("menu","auth","pack","home","players","board","groups","events","polls","ideas","notifications","info","help","admin","player-statistics","admin-tools","moderation-votes","moderation-vote-duration","moderation-vote-status","skins","skin-names","community-plus","skin-receipts");
     public static JsonArray features(){var array=new JsonArray();FEATURES.stream().sorted().forEach(array::add);return array;}
     public static String branch(String version){if(!Versions.sameMajor(version,version))throw new IllegalArgumentException("Invalid AntHub version");return version.split("\\.")[0]+".x";}
     public static Set<String> common(JsonElement value){

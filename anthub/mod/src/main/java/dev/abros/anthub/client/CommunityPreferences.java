@@ -1,26 +1,27 @@
 package dev.abros.anthub.client;
-
 import com.google.gson.*;
-import dev.abros.anthub.core.Json;
+import dev.abros.anthub.core.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.*;
-import net.minecraft.client.gui.screens.*;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import java.time.*;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.*;
-
-    final class CommunityPreferences extends ScrollScreen implements CommunityScreen.Receiver {
-        private final Screen parent;private final JsonArray favorites=new JsonArray(),muted=new JsonArray();private String error="",request="";private boolean busy,retry;private final dev.abros.anthub.core.RequestSession session=new dev.abros.anthub.core.RequestSession();
-        CommunityPreferences(Screen parent,JsonObject prefs){super(Component.literal("Настройки уведомлений"));this.parent=parent;if(prefs.has("favorites"))prefs.getAsJsonArray("favorites").forEach(favorites::add);if(prefs.has("muted"))prefs.getAsJsonArray("muted").forEach(muted::add);}
-        private void toggle(JsonArray a,String k){var v=new JsonPrimitive(k);if(a.contains(v))a.remove(v);else a.add(v);rebuildWidgets();}
-        private int panelTop(){return Math.max(12,(height-300)/2);}
-        @Override protected void init(){int w=Math.min(440,width-32),x=(width-w)/2,top=panelTop();var keys=List.of("board","groups","events","polls","ideas","notices","sound","restartNotices");scrollArea(keys.size(),top+30,Math.min(height-66,top+244),26,x+w+4);for(int n=firstRow;n<Math.min(keys.size(),firstRow+visibleRows);n++){String k=keys.get(n);int y=top+30+(n-firstRow)*26;if(n>=5){int setting=n==6?1:n==7?2:0;addRenderableWidget(Button.builder(Component.literal((setting==0?"Все плашки":setting==1?"Звук уведомлений":"Предупреждения о перезапуске")+": "+(ServerMenuClient.enabled(setting)?"вкл":"выкл")),b->{ServerMenuClient.toggle(setting);rebuildWidgets();}).bounds(x,y,w,20).build());continue;}addRenderableWidget(Button.builder(Component.literal(CommunityScreen.name(k)+": "+(muted.contains(new JsonPrimitive(k))?"без плашек":"плашки включены")),b->toggle(muted,k)).bounds(x,y,w,20).build());}addRenderableWidget(Button.builder(Component.literal(busy?"Сохранение…":retry?"Повторить":"Сохранить"),b->{if(busy)return;busy=true;if(retry){var again=session.retry(System.currentTimeMillis());request=Json.str(again,"request");ServerMenuClient.request(again);rebuildWidgets();return;}request=UUID.randomUUID().toString();var j=new JsonObject();j.addProperty("action","community");j.addProperty("op","preferences");j.addProperty("section","home");j.addProperty("request",request);var p=new JsonObject();p.add("favorites",favorites);p.add("muted",muted);j.add("preferences",p);j=session.begin(j,true,System.currentTimeMillis());request=Json.str(j,"request");ServerMenuClient.request(j);rebuildWidgets();}).bounds(x,Math.min(height-28,top+272),w/2-3,20).build());addRenderableWidget(Button.builder(Component.literal("Назад"),b->onClose()).bounds(x+w/2+3,Math.min(height-28,top+272),w/2-3,20).build());for(var child:children())if(child instanceof AbstractWidget widget)widget.active=!busy&&(!retry||widget.getMessage().getString().equals("Повторить")||widget.getMessage().getString().equals("Назад"));}
-        public void receiveCommunity(JsonObject j){if(!session.receive(j))return;busy=false;if(j.has("error")){error=Json.opt(j,"text","");retry=!Set.of("INVALID","FORBIDDEN","EXPIRED","CONFLICT").contains(Json.opt(j,"code",""));rebuildWidgets();return;}minecraft.setScreen(parent);invalidateParent();}
-        @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawCenteredString(font,title,width/2,panelTop()+6,0xE2BE75);g.drawString(font,error,20,height-55,0xEEEEEE);}
-        @Override public void tick(){if(session.timeout(System.currentTimeMillis())){busy=false;retry=true;error="Нет ответа. Повторите сохранение.";rebuildWidgets();}}
-        @Override public void onClose(){if(busy)return;session.cancel();invalidateParent();minecraft.setScreen(parent);}
-        private void invalidateParent(){if(parent instanceof NotificationPopup p)p.invalidate();else if(parent instanceof CommunityScreen p)p.invalidate();}
-        @Override public boolean isPauseScreen(){return false;}
-    }
+/** Toggles persist immediately. Failed network saves keep the same command for safe retry. */
+final class CommunityPreferences extends ScrollScreen implements CommunityScreen.Receiver {
+ private final Screen parent;private final JsonArray muted=new JsonArray();private final RequestSession session=new RequestSession();private boolean busy,retry;private String status="";
+ CommunityPreferences(Screen parent,JsonObject prefs){super(Component.literal("Настройки уведомлений"));this.parent=parent;if(prefs.has("muted"))prefs.getAsJsonArray("muted").forEach(muted::add);}
+ private void toggle(String key){if(busy||retry)return;var value=new JsonPrimitive(key);if(muted.contains(value))muted.remove(value);else muted.add(value);var body=new JsonObject();body.addProperty("action","community");body.addProperty("op","preferences");body.addProperty("section","home");var prefs=new JsonObject();prefs.add("muted",muted.deepCopy());body.add("preferences",prefs);busy=true;status="Сохранение…";ServerMenuClient.request(session.begin(body,true,System.currentTimeMillis()));rebuildWidgets();}
+ private int panelTop(){return DialogPanel.top(height,340);}
+ private int panelBottom(){return height-panelTop();}
+ @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(440,width-32),panelTop(),panelBottom());}
+ @Override protected void init(){int w=Math.min(440,width-32),x=(width-w)/2,top=panelTop();var keys=List.of("board","groups","events","polls","ideas","notices","sound","restartNotices","contacts");scrollArea(keys.size(),top+30,panelBottom()-78,26,x+w+4);for(int n=firstRow;n<Math.min(keys.size(),firstRow+visibleRows);n++){String key=keys.get(n);int y=top+30+(n-firstRow)*26;if(n==8){var contacts=addRenderableWidget(Button.builder(Component.literal("Приглашения и отклики…"),b->PersonalProfileScreen.ignores(this,"")).bounds(x,y,w,20).build());contacts.active=!busy&&!retry;}else if(n>=5){int setting=n==6?1:n==7?2:0;addRenderableWidget(Button.builder(Component.literal((setting==0?"Все плашки":setting==1?"Звук уведомлений":"Предупреждения о перезапуске")+": "+(ServerMenuClient.enabled(setting)?"вкл":"выкл")),b->{ServerMenuClient.toggle(setting);rebuildWidgets();}).bounds(x,y,w,20).build());}else{var button=addRenderableWidget(Button.builder(Component.literal(CommunityScreen.name(key)+": "+(muted.contains(new JsonPrimitive(key))?"без плашек":"плашки включены")),b->toggle(key)).bounds(x,y,w,20).build());button.active=!busy&&!retry;}}
+  if(retry)addRenderableWidget(Button.builder(Component.literal("Повторить сохранение"),b->{busy=true;retry=false;status="Сохранение…";ServerMenuClient.request(session.retry(System.currentTimeMillis()));rebuildWidgets();}).bounds(x,panelBottom()-54,w,20).build());
+  var back=addRenderableWidget(Button.builder(Component.literal("Назад"),b->onClose()).bounds(x,panelBottom()-28,w,20).build());back.active=!busy;
+ }
+ public void receiveCommunity(JsonObject j){if(!session.receive(j))return;busy=false;if(j.has("error")){status=Json.opt(j,"text","Не удалось сохранить");retry=true;}else{status="Сохранено";retry=false;invalidateParent();}rebuildWidgets();}
+ @Override public void tick(){if(session.timeout(System.currentTimeMillis())){busy=false;retry=true;status="Нет ответа. Повторите сохранение.";rebuildWidgets();}}
+ @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawCenteredString(font,title,width/2,panelTop()+6,0xE2BE75);Ui.status(g,font,status,(width-Math.min(440,width-32))/2,panelBottom()-76,Math.min(440,width-32),panelBottom()-56);}
+ @Override public void onClose(){if(busy)return;session.cancel();invalidateParent();minecraft.setScreen(parent);}
+ private void invalidateParent(){if(parent instanceof NotificationPopup p)p.invalidate();else if(parent instanceof CommunityScreen p)p.invalidate();}
+ @Override public boolean isPauseScreen(){return false;}
+}

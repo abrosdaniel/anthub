@@ -22,6 +22,8 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
     private JsonObject target;private JsonObject preferences=new JsonObject();
 
     NotificationPopup(Screen parent) { super(Component.literal("Уведомления")); this.parent = parent; }
+    void refreshVote(){rebuildWidgets();}
+    private boolean activeVote(){return Json.opt(ServerMenuClient.moderationVote,"status","").equals("open")&&ServerMenuClient.moderationVote.has("endsAt")&&ServerMenuClient.moderationVote.get("endsAt").getAsLong()>System.currentTimeMillis();}
     void invalidate() { if (dirtyAt == 0) dirtyAt = System.currentTimeMillis(); }
     private int left() { return (width - panelWidth()) / 2; }
     private int top() { return Math.max(8, (height - 320) / 2); }
@@ -31,7 +33,8 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
     @Override protected void init() {
         ModalLayer.prepare(parent,this);
         int x = left(), w = panelWidth(), y = top();
-        scrollArea(entries.size(), y + 40, bottom() - 86, 36, x + w - 10);
+        if(activeVote())addRenderableWidget(Button.builder(Component.literal(font.plainSubstrByWidth("Голосование о наказании: "+Json.opt(ServerMenuClient.moderationVote,"name",""),w-40)),b->minecraft.setScreen(new ModerationVoteScreen(this,null))).bounds(x+10,y+36,w-28,24).build());
+        scrollArea(entries.size(), y + (activeVote()?72:40), bottom() - 86, 36, x + w - 10);
         for (int i = firstRow; i < Math.min(entries.size(), firstRow + visibleRows); i++) {
             var notice = entries.get(i).getAsJsonObject();
             String label = (notice.get("read").getAsBoolean() ? "" : "● ") + Json.str(notice, "title");
@@ -40,7 +43,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
                 target = notice;
                 page = 0;
                 send("read", Json.str(notice, "id"));
-            }).bounds(x + 10, y + 40 + (i - firstRow) * 36, w - 28, 30).build());
+            }).bounds(x + 10, y + (activeVote()?72:40) + (i - firstRow) * 36, w - 28, 30).build());
         }
         addRenderableWidget(Button.builder(Component.literal("Прочитать всё"), b -> {
             if (busy) return;
@@ -69,6 +72,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
     @Override public void receiveCommunity(JsonObject j) {
         if (!session.receive(j)) return;
 
+        var previousEntries=entries;boolean hadPreferences=preferencesLoaded,wasFailed=failed;
         busy = false;
         if (j.has("error")) { status = Json.opt(j, "text", "Ошибка"); failed=true; nextAt = 0; rebuildWidgets();return; }
         if(j.has("preferences")&&j.get("preferences").isJsonObject()){preferences=j.getAsJsonObject("preferences").deepCopy();preferencesLoaded=true;}
@@ -90,8 +94,8 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
             else onClose();
             return;
         }
-        status = entries.isEmpty() ? "Событий пока нет" : "";
-        rebuildWidgets();
+        status = entries.isEmpty() ? (activeVote()?"":"Уведомлений пока нет") : "";
+        if(!previousEntries.equals(entries)||hadPreferences!=preferencesLoaded||wasFailed)rebuildWidgets();
     }
 
     private void more() {

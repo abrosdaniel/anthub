@@ -26,8 +26,9 @@ final class ServerMenuScreen extends ScrollScreen {
         content.bounds(nav.left(),70,width-nav.left()-14,Math.max(30,height-145));
         if(tab.equals("help")){addRenderableWidget(Button.builder(Component.literal("Интерфейс и голос…"),b->minecraft.setScreen(new ChoicePopup(this,"Настройки клиента",List.of("Доступность интерфейса","Диагностика Plasmo Voice"),i->minecraft.setScreen(i==0?new AccessibilityScreen(this):new VoiceDiagnosticsScreen(this))))).bounds(nav.left(),42,Math.min(180,width-nav.left()-14),20).build());button("server.report",nav.left(),height-72,Math.min(180,(width-nav.left()-22)/2),()->minecraft.setScreen(new ReportScreen(this)));button("server.myReports",nav.left()+(width-nav.left())/2,height-72,Math.min(180,(width-nav.left()-22)/2),()->FeatureListScreen.open(this,"myReports"));}
         if(tab.equals("admin")){
-            int left=nav.left(),available=width-left-14,third=(available-8)/3;
+            int left=nav.left(),available=width-left-14;
             var groups=new ArrayList<String>();if(ServerMenuClient.may("anthub.reports"))groups.add("reports");if(ServerMenuClient.may("anthub.announce")||ServerMenuClient.may("anthub.maintenance")||ServerMenuClient.may("anthub.restart"))groups.add("server");if(ServerMenuClient.admin()||ServerMenuClient.may("anthub.diagnostics"))groups.add("journal");
+            int third=(available-4*Math.max(0,groups.size()-1))/Math.max(1,groups.size());
             if(!groups.contains(adminGroup)&&!groups.isEmpty())adminGroup=groups.getFirst();
             for(int i=0;i<groups.size();i++){String group=groups.get(i);String label=switch(group){case "reports"->"Обращения";case "server"->"Сервер";default->"Журнал";};var control=addRenderableWidget(Button.builder(Component.literal(label),b->{adminGroup=group;resetScroll();rebuildWidgets();}).bounds(left+i*(third+4),42,third,20).build());control.active=!group.equals(adminGroup);}
             adminRows.clear();stateKey=modeKey();
@@ -49,7 +50,7 @@ final class ServerMenuScreen extends ScrollScreen {
             scrollArea(adminRows.size(),76,height-64,64,width-10);
             for(int row=firstRow;row<Math.min(adminRows.size(),firstRow+visibleRows);row++){
                 var item=adminRows.get(row);int y=76+(row-firstRow)*64+24;int bw=Math.min(210,(available-16-4*(item.actions.size()-1))/item.actions.size());
-                for(int i=0;i<item.actions.size();i++){var callback=item.actions.get(i);String caption=item.captions.get(i);var control=addRenderableWidget(Button.builder(Component.literal(font.plainSubstrByWidth(caption,bw-12)),b->callback.run()).bounds(left+8+i*(bw+4),y,bw,20).build());control.setTooltip(Tooltip.create(Component.literal(caption)));}
+                for(int i=0;i<item.actions.size();i++){var callback=item.actions.get(i);String caption=item.captions.get(i);var control=addRenderableWidget(Button.builder(Component.literal(font.plainSubstrByWidth(caption,bw-12)),b->callback.run()).bounds(left+8+i*(bw+4),y,bw,20).build());control.setTooltip(control.getMessage().getString().equals(caption)?null:Tooltip.create(Component.literal(caption)));}
             }
         }
         button("back",width-114,height-28,100,()->onClose());
@@ -91,15 +92,18 @@ final class ServerMenuScreen extends ScrollScreen {
     private static final class ActionForm extends Screen {
         private final Screen parent;private final String action;private EditBox message,duration;private String error="";
         ActionForm(Screen parent,String action){super(action.equals("pinAnnouncement")?Component.literal("Закреплённое объявление"):Client.tr("server."+action));this.parent=parent;this.action=action;}
+        private int top(){return DialogPanel.top(height,240);}
+        private int bottom(){return height-top();}
         private Component durationLabel(){return action.equals("pinAnnouncement")?Component.literal("Минуты (1–10080)"):Client.tr(action.equals("restart")?"server.seconds":"server.minutes");}
         private boolean timed(){return !action.equals("announce");}
-        @Override protected void init(){
+        @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(420,width-40),top(),bottom());}
+ @Override protected void init(){
             int w=Math.min(420,width-40),x=(width-w)/2;
             String draft=message==null?(action.equals("pinAnnouncement")?Json.opt(ServerMenuClient.state,"pinnedText",""):""):message.getValue(),value=duration==null?(action.equals("maintenance")?"15":"60"):duration.getValue();
-            message=addRenderableWidget(new EditBox(font,x,64,w,20,Client.tr("server.message")));message.setMaxLength(500);message.setValue(draft);
-            if(timed()){duration=addRenderableWidget(new EditBox(font,x,108,100,20,durationLabel()));duration.setMaxLength(5);duration.setFilter(v->v.matches("[0-9]*"));duration.setValue(value);}
-            addRenderableWidget(Button.builder(Client.tr("server.confirm"),b->submit()).bounds(x,height-28,w/2-3,20).build());
-            addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(x+w/2+3,height-28,w/2-3,20).build());
+            message=addRenderableWidget(new EditBox(font,x,top()+54,w,20,Client.tr("server.message")));message.setMaxLength(500);message.setValue(draft);
+            if(timed()){duration=addRenderableWidget(new EditBox(font,x,top()+98,100,20,durationLabel()));duration.setMaxLength(5);duration.setFilter(v->v.matches("[0-9]*"));duration.setValue(value);}
+            addRenderableWidget(Button.builder(Client.tr("server.confirm"),b->submit()).bounds(x,bottom()-28,w/2-3,20).build());
+            addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(x+w/2+3,bottom()-28,w/2-3,20).build());
             setInitialFocus(message);
         }
         private void submit(){
@@ -111,9 +115,9 @@ final class ServerMenuScreen extends ScrollScreen {
             minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(yes?parent:this);if(yes)ServerMenuClient.request(j);},title,summary));
         }
         @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);int left=(width-Math.min(420,width-40))/2;
-            g.drawCenteredString(font,title,width/2,20,0xE2BE75);g.drawString(font,Client.tr("server.message"),left,50,AccessibilityScreen.foreground(0xEEEEEE));
-            if(timed())g.drawString(font,durationLabel(),left,94,AccessibilityScreen.foreground(0xEEEEEE));
-            Ui.status(g,font,error.isEmpty()?(action.equals("pinAnnouncement")?"Сообщение появится на главной до окончания указанного срока.":Client.tr("server.form."+action).getString()):error,left,timed()?140:100,Math.min(420,width-40),height-36);
+            g.drawCenteredString(font,title,width/2,top()+14,0xE2BE75);g.drawString(font,Client.tr("server.message"),left,top()+40,AccessibilityScreen.foreground(0xEEEEEE));
+            if(timed())g.drawString(font,durationLabel(),left,top()+84,AccessibilityScreen.foreground(0xEEEEEE));
+            Ui.status(g,font,error.isEmpty()?(action.equals("pinAnnouncement")?"Сообщение появится на главной до окончания указанного срока.":Client.tr("server.form."+action).getString()):error,left,top()+(timed()?130:90),Math.min(420,width-40),bottom()-36);
         }
         @Override public void tick(){if(!ServerMenuClient.available())minecraft.setScreen(null);else if(!ServerMenuClient.may("anthub."+(action.equals("pinAnnouncement")?"announce":action)))minecraft.setScreen(parent);}
         @Override public boolean isPauseScreen(){return false;}

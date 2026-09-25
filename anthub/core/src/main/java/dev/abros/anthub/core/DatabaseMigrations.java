@@ -3,7 +3,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 /** Ordered, checksummed migrations. All pending steps commit together or roll back. */
 final class DatabaseMigrations {
- private static final List<String> FILES=List.of("001.sql","002.sql","003.sql");
+ private static final List<String> FILES=List.of("001.sql","002.sql","003.sql","004.sql");
  static void apply(PgDatabase db)throws Exception{
   db.lock("anthub-schema");
   try(var statement=db.connection().createStatement()){
@@ -18,7 +18,7 @@ final class DatabaseMigrations {
     try(var q=db.connection().prepareStatement("INSERT INTO schema_versions(version,checksum) VALUES(?,?)")){q.setInt(1,i+1);q.setString(2,hash);q.executeUpdate();}
    }
    // Verify applied history against the actual structure, without rewriting existing data.
-   for(String projection:List.of("hash,png FROM skin_images","id,owner,hash,name,slim FROM skin_library","owner,active,fallback,slim,source,checked FROM skin_profiles","version,checksum,applied FROM schema_versions","id,section,body,sequence FROM documents","id,name,seen,role FROM people","id,recipient,body,read FROM notices","namespace,id,body,sequence FROM records","id,body FROM preferences","name,uuid,type,official,password,generation,blocked FROM auth_accounts","id,name,hash,label,created,used,expires FROM auth_devices","name,hash,expires FROM auth_resets","id,at,actor,action,target FROM auth_audit","name,failures,next FROM auth_failures","actor,id,digest,response,created FROM request_receipts","id,topic,entity,recipient,created,delivered FROM community_events"))try(var ignored=statement.executeQuery("SELECT "+projection+" WHERE FALSE")){}
+   for(String projection:List.of("document,kind,actor,value FROM community_relations","player,about,interests FROM community_profile","id,group_id,kind,body,revision FROM community_group_items","hash,png FROM skin_images","id,owner,hash,name,slim FROM skin_library","owner,active,fallback,slim,source,checked FROM skin_profiles","version,checksum,applied FROM schema_versions","id,section,body,sequence FROM documents","id,name,seen,role FROM people","id,recipient,body,read FROM notices","namespace,id,body,sequence FROM records","id,body FROM preferences","name,uuid,type,official,password,generation,blocked FROM auth_accounts","id,name,hash,label,created,used,expires FROM auth_devices","name,hash,expires FROM auth_resets","id,at,actor,action,target FROM auth_audit","name,failures,next FROM auth_failures","actor,id,digest,response,created FROM request_receipts","id,topic,entity,recipient,created,delivered FROM community_events"))try(var ignored=statement.executeQuery("SELECT "+projection+" WHERE FALSE")){}
   }
  }
 }

@@ -8,18 +8,22 @@ final class GroupsSection {
  static void render(CommunityScreen host,JsonObject j){
   boolean manage=j.get("manage").getAsBoolean();
   if(!manage&&host.groupTab.equals("requests"))host.groupTab="overview";
+  if(CommunityScreen.plus()&&Set.of("tasks","places").contains(host.groupTab)){CommunityTools.groupItems(host,j);return;}
   if(host.groupTab.equals("members")){
    host.text("Участников: "+j.get("membersCount").getAsInt());
+   if(CommunityScreen.plus()&&host.owner(j))host.secondary("Помощники: исключение участников",()->net.minecraft.client.Minecraft.getInstance().setScreen(new ChoicePopup(host.surface(),"Помощники могут исключать обычных участников",List.of("Запретить","Разрешить"),i->{var b=new JsonObject();b.addProperty("enabled",i==1);host.send("plusAssistantRemoval",b);})));
    for(var entry:j.getAsJsonObject("members").entrySet()){
-    String target=entry.getKey(),role=entry.getValue().getAsString();String label=host.shortName(target)+" · "+switch(role){case "leader"->"Руководитель";case "assistant"->"Помощник";default->"Участник";};
-    if(host.owner(j)&&!target.equals(me()))host.action(label+"  ⋯",()->net.minecraft.client.Minecraft.getInstance().setScreen(new ChoicePopup(host.surface(),host.shortName(target),List.of("Сделать участником","Назначить помощником","Передать руководство"),i->{var body=new JsonObject();body.addProperty("target",target);body.addProperty("role",List.of("member","assistant","leader").get(i));host.confirm(i==2?"Передать руководство этому участнику?":"Изменить роль участника?","role",body);})));else host.text(label);
+    int card=host.beginCard();String target=entry.getKey(),role=entry.getValue().getAsString();String label=host.shortName(target)+" · "+switch(role){case "leader"->"Руководитель";case "assistant"->"Помощник";default->"Участник";};
+    host.text(label);
+    if(CommunityScreen.plus()&&j.has("canRemoveMember")&&j.get("canRemoveMember").getAsBoolean()&&!target.equals(Json.str(j,"owner"))&&(host.owner(j)||ServerMenuClient.admin()||role.equals("member")))host.action("Исключить: "+host.shortName(target),()->{var preset=new JsonObject();preset.addProperty("target",target);host.form("Исключить участника","plusRemoveMember",List.of(new CommunityScreen.Field("reason","Причина",300)),preset);});
+    if(host.owner(j)&&!target.equals(me()))host.action("Роль и руководство…",()->net.minecraft.client.Minecraft.getInstance().setScreen(new ChoicePopup(host.surface(),host.shortName(target),List.of("Сделать участником","Назначить помощником","Передать руководство"),i->{var body=new JsonObject();body.addProperty("target",target);body.addProperty("role",List.of("member","assistant","leader").get(i));host.confirm(i==2?"Передать руководство этому участнику?":"Изменить роль участника?","role",body);})));host.endCard(card);
    }
   }else if(host.groupTab.equals("requests")){
    var applications=j.getAsJsonObject("applications");host.text("Заявки · "+j.get("applicationsCount").getAsInt());if(applications.isEmpty())host.text("Нет ожидающих заявок.");
-   for(var entry:applications.entrySet()){String target=entry.getKey();var application=entry.getValue().getAsJsonObject();host.text(Json.str(application,"name")+"\n"+Json.str(application,"text"));host.action("Рассмотреть: "+Json.str(application,"name"),()->net.minecraft.client.Minecraft.getInstance().setScreen(new ChoicePopup(host.surface(),"Заявка: "+Json.str(application,"name"),List.of("Принять","Отклонить"),i->{var b=new JsonObject();b.addProperty("target",target);b.addProperty("accept",i==0);host.send("application",b);})));}
-   host.text("\nПриглашения · "+j.get("invitationsCount").getAsInt());
+   for(var entry:applications.entrySet()){String target=entry.getKey();var application=entry.getValue().getAsJsonObject();int card=host.beginCard();host.text(Json.str(application,"name"));host.text(Json.str(application,"text"));var controls=new ArrayList<CommunityScreen.Row>();for(boolean accept:List.of(true,false))controls.add(new CommunityScreen.Row(accept?"Принять":"Отклонить",()->{var body=new JsonObject();body.addProperty("target",target);body.addProperty("accept",accept);host.send("application",body);}));host.actionRow(controls);host.endCard(card);}
+   host.text("Приглашения · "+j.get("invitationsCount").getAsInt());
    if(j.getAsJsonObject("invitations").isEmpty())host.text("Нет ожидающих приглашений.");
-   for(String target:j.getAsJsonObject("invitations").keySet())host.action(host.shortName(target)+" · отменить приглашение",()->{var b=new JsonObject();b.addProperty("target",target);host.confirm("Отменить приглашение?","revokeInvitation",b);});
+   for(String target:j.getAsJsonObject("invitations").keySet()){int card=host.beginCard();host.text(host.shortName(target));host.action("Отменить приглашение",()->{var b=new JsonObject();b.addProperty("target",target);host.confirm("Отменить приглашение?","revokeInvitation",b);});host.endCard(card);}
   }else{
    host.text(Json.str(j,"type")+" · "+(j.get("recruiting").getAsBoolean()?"Набор открыт":"Набор закрыт"));
    host.text("Участников: "+j.get("membersCount").getAsInt());

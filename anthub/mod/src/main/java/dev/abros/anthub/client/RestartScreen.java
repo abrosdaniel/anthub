@@ -4,6 +4,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 public final class RestartScreen extends Screen {
+ @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(300,width-24),height/2-80,height/2+82);}
     private final Screen parent;private final String transaction;private String error="";
     public RestartScreen(Screen parent,String transaction){super(Client.tr("restart.title"));this.parent=parent;this.transaction=transaction;}
     @Override protected void init(){

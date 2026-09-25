@@ -9,6 +9,9 @@ import net.minecraft.client.multiplayer.ServerData;
 
 /** The server can propose a repository; only the player's action starts a fetch/install review. */
 final class ServerUpdateScreen extends Screen {
+ private int panelTop(){return DialogPanel.top(height,240);}
+ private int panelBottom(){return height-panelTop();}
+ @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(440,width-40),panelTop(),panelBottom());}
     private final Screen parent;private final JsonObject offer;private final ServerData server;
     private String status="";private boolean busy;
     ServerUpdateScreen(Screen parent,JsonObject offer,ServerData server){super(Client.tr("server.update"));this.parent=parent;this.offer=offer;this.server=server;}
@@ -24,11 +27,11 @@ final class ServerUpdateScreen extends Screen {
                     minecraft.setScreen(new ComponentsScreen(this,release));
                 }catch(Exception ex){status=Errors.message(ex);}
             },minecraft);
-        }).bounds(width/2-120,height-54,240,20).build());
-        addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(width/2-100,height-28,200,20).build());
+        }).bounds(width/2-120,panelBottom()-54,240,20).build());
+        addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(width/2-100,panelBottom()-28,200,20).build());
     }
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawCenteredString(font,title,width/2,20,0xE2BE75);
-        Ui.status(g,font,server.name+"\n"+Client.tr("server.required",Json.opt(offer,"requiredVersion","?")).getString()+"\n"+Json.opt(offer,"repository","")+"\n\n"+status,20,55,width-40,height-65);
+    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawCenteredString(font,title,width/2,panelTop()+20,0xE2BE75);
+        Ui.status(g,font,server.name+"\n"+Client.tr("server.required",Json.opt(offer,"requiredVersion","?")).getString()+"\n"+Json.opt(offer,"repository","")+"\n\n"+status,(width-Math.min(440,width-40))/2,panelTop()+55,Math.min(440,width-40),panelBottom()-65);
     }
     @Override public void onClose(){minecraft.setScreen(parent);}
 }
