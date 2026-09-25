@@ -17,7 +17,7 @@ final class EventsSection {
                  if(j.has("series")&&manage)host.secondary("Отменить будущие встречи серии",()->host.confirm("Отменить все будущие встречи серии?","plusCancelSeries",new JsonObject()));
                 }
                 host.endCard(card);
-                if(can(j,"reschedule")){host.secondary("Перенести",()->host.form("Перенос события","reschedule",List.of(new CommunityScreen.Field("startsAt","Начало (местное время: yyyy-MM-dd HH:mm)",30)),new JsonObject()));host.secondary("Отменить событие",()->host.confirm("Отменить событие?","cancel",new JsonObject()));}
+                if(can(j,"reschedule")){host.secondary("Перенести",()->host.form("Перенос события","reschedule",List.of(new CommunityScreen.Field("startsAt","Начало · местное время",30)),new JsonObject()));host.secondary("Отменить событие",()->host.confirm("Отменить событие?","cancel",new JsonObject()));}
 
  }
 }

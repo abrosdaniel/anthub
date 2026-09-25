@@ -8,7 +8,7 @@ final class CommunityTools {
  static void creation(String section,List<CommunityScreen.Field> fields,JsonObject preset){
   if(section.equals("events")){
    fields.add(new CommunityScreen.Field("visibility","Кто видит событие",20,options("public","Все","group","Участники объединения","invited","Приглашённые")));
-   fields.add(new CommunityScreen.Field("invitees","Приглашённые: ники через запятую",1000));
+   fields.add(new CommunityScreen.Field("invitees","Приглашённые игроки",1200));
    fields.add(new CommunityScreen.Field("repeat","Повторение",20,options("none","Один раз","weekly","Каждую неделю","fortnightly","Раз в две недели","monthly","Каждый месяц")));
    fields.add(new CommunityScreen.Field("occurrences","Встреч в серии (2–26)",2));preset.addProperty("occurrences","8");preset.addProperty("timezone",java.time.ZoneId.systemDefault().getId());
   }
@@ -36,9 +36,9 @@ final class CommunityTools {
  }
  private static JsonObject identity(JsonObject item){var b=new JsonObject();b.addProperty("itemId",Json.str(item,"id"));b.add("itemRevision",item.get("revision"));return b;}
  private static void edit(CommunityScreen host,String kind,JsonObject item){
-  var preset=item==null?new JsonObject():item.deepCopy();if(item!=null){preset.addProperty("itemId",Json.str(item,"id"));preset.add("itemRevision",item.get("revision"));long due=item.has("dueAt")?item.get("dueAt").getAsLong():0;preset.addProperty("dueAt",due==0?"":java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm").format(java.time.Instant.ofEpochMilli(due).atZone(java.time.ZoneId.systemDefault())));}
-  preset.addProperty("kind",kind);var fields=new ArrayList<CommunityScreen.Field>();fields.add(new CommunityScreen.Field("title","Название",100));fields.add(new CommunityScreen.Field("description","Описание",1000));
-  if(kind.equals("task")){fields.add(new CommunityScreen.Field("assignee","Ответственный: ник или UUID (необязательно)",100));fields.add(new CommunityScreen.Field("dueAt","Срок (необязательно)",30));}
+  var preset=new JsonObject();if(item!=null)for(String key:List.of("title","description","assignee","location"))if(item.has(key))preset.add(key,item.get(key).deepCopy());if(item!=null){preset.addProperty("itemId",Json.str(item,"id"));preset.add("itemRevision",item.get("revision"));long due=item.has("dueAt")?item.get("dueAt").getAsLong():0;preset.addProperty("dueAt",due==0?"":java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm").format(java.time.Instant.ofEpochMilli(due).atZone(java.time.ZoneId.systemDefault())));}
+  preset.addProperty("kind",kind);var fields=new ArrayList<CommunityScreen.Field>();fields.add(new CommunityScreen.Field("title","Название",kind.equals("place")?80:100));fields.add(new CommunityScreen.Field("description","Описание",1000));
+  if(kind.equals("task")){fields.add(new CommunityScreen.Field("assignee","Ответственный",100));fields.add(new CommunityScreen.Field("dueAt","Срок (необязательно)",30));}
   host.form(item==null?kind.equals("task")?"Новая задача":"Новое место":"Редактировать", "plusItemSave",fields,preset);
  }
 }

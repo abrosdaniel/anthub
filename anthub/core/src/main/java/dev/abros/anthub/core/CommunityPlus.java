@@ -21,7 +21,7 @@ final class CommunityPlus {
   String section=Json.str(j,"section");
   if(section.equals("events")){
    String visibility=Json.opt(in,"visibility","public");require(Set.of("public","group","invited").contains(visibility));if(visibility.equals("group"))require(member(Json.opt(j,"group",""),a.id()));j.addProperty("visibility",visibility);
-   var invites=new JsonArray();String names=text(in,"invitees",1000);for(String name:names.split(",")){if(name.isBlank())continue;String target=person(name.strip());allowContact(target,a.id());if(!invites.contains(new JsonPrimitive(target)))invites.add(target);}
+   var invites=new JsonArray();String names=text(in,"invitees",1200);for(String name:names.split(",")){if(name.isBlank())continue;String target=person(name.strip());allowContact(target,a.id());if(!invites.contains(new JsonPrimitive(target)))invites.add(target);}
    if(invites.size()>30)throw new IllegalArgumentException("Не более 30 приглашённых");j.add("eventInvites",invites);
   }
   if(section.equals("board")&&!Json.opt(in,"trade","none").equals("none")){

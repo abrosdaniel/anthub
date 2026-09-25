@@ -179,4 +179,9 @@ class CommunityStoreTest {
   var result=detail("ideas",key,owner);assertEquals(300,result.get("supportersCount").getAsInt());assertTrue(result.getAsJsonObject("supporters").isEmpty());assertTrue(result.toString().length()<32767);System.out.println("300 actors / 600 idempotent requests: "+((System.nanoTime()-start)/1000000)+" ms");
  }
 
+ @Test void editClearsLocationThroughSerializedCommandAndRetry()throws Exception{
+  var group=create("groups");var set=input("groups","location",id(group));set.add("location",new CommunityLocation("Base","minecraft:overworld",1,64,2,false).json());db.request(owner,set);var current=detail("groups",id(group),owner);
+  var edit=command(input("groups","edit",id(group)));edit.add("revision",current.get("revision"));edit.addProperty("title","Renamed group");edit.addProperty("description","Description");edit.addProperty("type",Json.str(current,"type"));edit.add("location",JsonNull.INSTANCE);edit.addProperty("clearLocation",true);
+  var wire=Json.parse(Json.GSON.toJson(edit));assertFalse(wire.has("location"));var changed=db.request(owner,wire).getAsJsonObject("detail");assertFalse(changed.has("location"));assertEquals("Renamed group",Json.str(changed,"title"));db.request(owner,wire);assertFalse(detail("groups",id(group),owner).has("location"));
+ }
 }

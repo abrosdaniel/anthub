@@ -106,7 +106,7 @@ public final class CommunityStore implements AutoCloseable {
                 j.addProperty("title",text(in,"title",100));j.addProperty("description",text(in,"description",1500));
                 if(section.equals("groups")){String type=text(in,"type",40);require(config.getAsJsonArray("groupTypes").contains(new JsonPrimitive(type)));j.addProperty("type",type);
                     for(var candidate:bodies("SELECT body FROM community_documents WHERE body->>'group'=? ORDER BY id",id)){var child=get(str(candidate,"id"),true);child.addProperty("groupName",str(j,"title"));put(child);}}
-                if(in.has("location"))setLocation(j,in);
+                if(in.has("location")||in.has("clearLocation"))setLocation(j,in);
                 if(section.equals("board")&&in.has("trade")){j.remove("trade");plus.prepare(a,in,j);}if(section.equals("events"))for(String target:map(j,"participants").keySet())if(!target.equals(a.id))note(target,section,id,"Обновлено событие: "+str(j,"title"));
             }else if(op.equals("location")){setLocation(j,in);
             }else if(op.equals("hide")){require(a.admin);String reason=text(in,"text",500);j.addProperty("status","hidden");j.addProperty("moderationReason",reason);note(str(j,"owner"),section,id,"Скрыто: "+title+" · "+reason);}
@@ -166,7 +166,7 @@ public final class CommunityStore implements AutoCloseable {
     public void acknowledgeChanges(JsonArray events)throws Exception{database.communityTransaction(()->{CommunityOutbox.acknowledge(database,events);return null;});}
     private void setLocation(JsonObject document,JsonObject input){
         if(!Set.of("board","groups","events","polls","ideas").contains(str(document,"section")))throw new IllegalArgumentException("Место недоступно в этом разделе");
-        if(!input.has("location")||input.get("location").isJsonNull()){document.remove("location");return;}
+        if(input.has("clearLocation")&&input.get("clearLocation").getAsBoolean()||!input.has("location")||input.get("location").isJsonNull()){document.remove("location");return;}
         var location=CommunityLocation.read(input.getAsJsonObject("location"));
         if(location.membersOnly()&&!str(document,"section").equals("groups")&&value(document,"group").isEmpty())throw new IllegalArgumentException("Закрытое место доступно только для объединения");
         document.add("location",location.json());
