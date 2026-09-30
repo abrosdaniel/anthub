@@ -38,6 +38,7 @@ public final class ServerSettings {
         catch(Exception failure){throw invalid("ошибка TOML: проверьте кавычки, типы и повторяющиеся параметры (значения скрыты)");}
         // Obsolete punishment defaults are ignored, so existing production configs still load.
         values.remove("moderationVotes.actions.banMinutes");values.remove("moderationVotes.actions.muteMinutes");
+        for(var e:defaults.entrySet())if(!values.containsKey(e.getKey())&&List.of("statistics.","skins.","moderationVotes.","community.","menu.","updates.","retention.").stream().anyMatch(e.getKey()::startsWith))values.put(e.getKey(),e.getValue());
         if(!values.keySet().equals(defaults.keySet()))throw invalid("набор разделов или параметров не соответствует шаблону. Старый формат не читается; заполните новый файл по README, раздел «Настройки сервера»");
         for(var e:defaults.entrySet()){
             Object v=values.get(e.getKey()),d=e.getValue();
@@ -47,12 +48,14 @@ public final class ServerSettings {
     }
     private static Map<String,Object> flatten(UnmodifiableConfig config){var out=new HashMap<String,Object>();flatten(config,"",out);return out;}
     private static void flatten(UnmodifiableConfig c,String prefix,Map<String,Object> out){for(var e:c.entrySet()){String key=prefix+e.getKey();Object v=e.getValue();if(v instanceof UnmodifiableConfig child)flatten(child,key+".",out);else out.put(key,v);}}
+    public JsonObject preview(ServerSettings next){var result=new JsonObject();var changes=new JsonArray();for(String key:new TreeSet<>(values.keySet()))if(!Objects.equals(values.get(key),next.values.get(key))){var entry=new JsonObject();entry.addProperty("key",key);boolean live=key.startsWith("menu.")||key.startsWith("community.");entry.addProperty("live",live);if(live){entry.add("before",key.equals("menu.links")?menu().get("links"):Json.GSON.toJsonTree(values.get(key)));entry.add("after",key.equals("menu.links")?next.menu().get("links"):Json.GSON.toJsonTree(next.values.get(key)));}changes.add(entry);}result.add("changes",changes);return result;}
+    public ServerSettings liveFrom(ServerSettings next){var merged=new HashMap<>(values);next.values.forEach((key,value)->{if(key.startsWith("menu.")||key.startsWith("community."))merged.put(key,value);});return new ServerSettings(merged);}
     public String text(String key){return (String)values.get(key);}
     public boolean flag(String key){return (Boolean)values.get(key);}
     public int number(String key){return Math.toIntExact(((Number)values.get(key)).longValue());}
     private void range(String key,int min,int max){long n=((Number)values.get(key)).longValue();if(n<min||n>max)throw invalid(key+": допустимо "+min+"–"+max);}
     private void validate(){
-        skins();range("connection.handshakeTimeoutSeconds",3,60);range("auth.minimumPasswordLength",6,128);
+        range("retention.reportDays",1,365);range("retention.trashDays",1,365);range("retention.auditEntries",100,100000);skins();range("connection.handshakeTimeoutSeconds",3,60);range("auth.minimumPasswordLength",6,128);
         range("database.port",1,65535);range("database.poolSize",2,32);
         if(!Set.of("false","base","hybrid").contains(text("auth.mode")))throw invalid("auth.mode: ожидается строка false, base или hybrid");
         if(text("menu.helpText").length()>2000)throw invalid("menu.helpText: максимум 2000 символов");

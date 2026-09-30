@@ -22,6 +22,7 @@ public final class HubScreen extends ScrollScreen {
   List<String> saved=Client.hub==null?List.of():Client.hub.saved();double offset=projectColumn==null?0:projectColumn.offset;
   projectColumn=addRenderableWidget(new ProjectColumn(10,100,leftWidth,height-164,saved,serverStatuses,()->release==null?"":release.manifest().repository(),repo->select(repo,false),repo->select(repo,true),this::refreshProject,this::buildProject,this::remove));projectColumn.offset=offset;
   addRenderableWidget(Button.builder(Client.tr("registry"),b->catalog()).bounds(10,60,leftWidth-5,20).build());
+  var settingsButton=addRenderableWidget(Button.builder(Component.literal("Загрузки…"),b->minecraft.setScreen(new DownloadSettingsScreen(this))).bounds(10,height-28,110,20).build());settingsButton.active=Client.hub!=null&&!busy;
   int half=(width-24)/2;
   cacheButton=addRenderableWidget(Button.builder(Client.tr("clearcache"),b->clearCache()).bounds(10,height-54,half,20).build());
   exportButton=addRenderableWidget(Button.builder(Client.tr("diagnostics.export"),b->exportDiagnostics()).bounds(14+half,height-54,half,20).build());
@@ -71,6 +72,7 @@ public final class HubScreen extends ScrollScreen {
             try(var socket=new java.net.Socket()){socket.connect(address.get().asInetSocketAddress(),4000);}catch(java.io.IOException failure){throw new java.io.IOException(Client.tr("connect.unreachable").getString(),failure);}
             boolean update=!Client.hub.activeHash().equals(checked.hash());var issues=update?List.<String>of():Client.hub.audit();
             var foreign=new ArrayList<>(Client.hub.foreignMods());if(Client.loadedJar!=null)foreign.remove(Client.loadedJar.getFileName().toString());
+            var duplicates=dev.abros.anthub.core.ModDuplicates.scan(Client.hub.game.resolve("mods"));
             boolean denied=!foreign.isEmpty()&&manifest.json().getAsJsonObject("policies").get("customFiles").getAsString().equals("deny");
             minecraft.execute(()->{
                 if(request!=generation||minecraft.screen!=this)return;busy=false;status="";release=checked;releases.put(repository,checked);
@@ -78,6 +80,7 @@ public final class HubScreen extends ScrollScreen {
                     String description=Client.tr(update?"connect.update":"connect.repair").getString()+"\n"+String.join("\n",issues);
                     minecraft.setScreen(new ReviewScreen(this,Client.tr("connect.readiness"),description,Client.tr(update?"update.pack":"repair"),()->{try{Client.hub.pendingConnection(manifest,server,checked.hash());minecraft.setScreen(new ComponentsScreen(this,checked));}catch(Exception ex){status=Errors.message(ex);minecraft.setScreen(this);}}));return;
                 }
+                if(!duplicates.isEmpty()){minecraft.setScreen(new TextScreen(this,Client.tr("connect.readiness"),"Один мод установлен несколько раз:\n\n"+String.join("\n",duplicates)+"\n\nОставьте одну версию каждого мода и повторите подключение."));return;}
                 if(denied){minecraft.setScreen(new TextScreen(this,Client.tr("connect.readiness"),Client.tr("connect.foreign",String.join(", ",foreign)).getString()));return;}
                 Runnable join=()->{dev.abros.anthub.network.Protocol.expectedServerId=server.id();ConnectScreen.startConnecting(this,minecraft,ServerAddress.parseString(server.address()),new ServerData(server.name(),server.address(),ServerData.Type.OTHER),false,null);};
                 if(foreign.isEmpty())join.run();else minecraft.setScreen(new ConfirmScreen(yes->{if(yes)join.run();else minecraft.setScreen(this);},Client.tr("foreign.title"),Client.tr("foreign.message",String.join(", ",foreign))));
@@ -101,9 +104,9 @@ public final class HubScreen extends ScrollScreen {
  @Override public boolean mouseClicked(double x,double y,int button){if(button==0){if(newsPane.click(x,y)||rulesPane.click(x,y))return true;for(var pane:List.of(newsPane,rulesPane)){var style=pane.link(font,x,y);if(style!=null&&style.getClickEvent()!=null)return handleComponentClicked(style);}}return super.mouseClicked(x,y,button);}
  @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){if(button==0&&(newsPane.drag(y)||rulesPane.drag(y)))return true;return super.mouseDragged(x,y,button,dx,dy);}
  @Override public boolean mouseReleased(double x,double y,int button){newsPane.release();rulesPane.release();return super.mouseReleased(x,y,button);}
- @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);g.drawCenteredString(font,title,width/2,12,0xE2BE75);g.drawString(font,Client.tr("saved.projects"),10,86,0xBBBBBB);
-  if(release!=null){var manifest=release.manifest();g.drawString(font,font.plainSubstrByWidth(Client.hub.projectName(manifest)+" · "+manifest.version(),rightWidth),rightX,60,Branding.accent(manifest));String state=Client.tr(Client.hub.activeHash().equals(release.hash())?"project.active":Client.hub.active()!=null&&Client.hub.active().repository().equals(manifest.repository())?"update.available":"project.savedonly").getString();String incompatible=Client.hub.incompatibility(manifest);if(!incompatible.isEmpty())state=Client.tr("requires",incompatible).getString();var server=Client.hub.selectedServer(manifest);if(server!=null)state+=" · "+server.name();g.drawString(font,font.plainSubstrByWidth(state,rightWidth),rightX,72,0xBBBBBB);}
-  g.drawString(font,Client.tr("news"),rightX,84,0xE2BE75);g.drawString(font,Client.tr("rules"),rulesX,84,0xE2BE75);newsPane.render(g,font);rulesPane.render(g,font);
+ @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);UiHeading.page(g,font,title,width);g.drawString(font,Client.tr("saved.projects"),10,86,UiPalette.color(0xBBBBBB));
+  if(release!=null){var manifest=release.manifest();g.drawString(font,font.plainSubstrByWidth(Client.hub.projectName(manifest)+" · "+manifest.version(),rightWidth),rightX,60,Branding.accent(manifest));String state=Client.tr(Client.hub.activeHash().equals(release.hash())?"project.active":Client.hub.active()!=null&&Client.hub.active().repository().equals(manifest.repository())?"update.available":"project.savedonly").getString();String incompatible=Client.hub.incompatibility(manifest);if(!incompatible.isEmpty())state=Client.tr("requires",incompatible).getString();var server=Client.hub.selectedServer(manifest);if(server!=null)state+=" · "+server.name();g.drawString(font,font.plainSubstrByWidth(state,rightWidth),rightX,72,UiPalette.color(0xBBBBBB));}
+  g.drawString(font,Client.tr("news"),rightX,84,UiPalette.color(0xE2BE75));g.drawString(font,Client.tr("rules"),rulesX,84,UiPalette.color(0xE2BE75));newsPane.render(g,font);rulesPane.render(g,font);
   Ui.status(g,font,status,10,height-78,width-20,height-58);
  }
  @Override public void removed(){generation++;for(var read:reads)read.cancel(true);reads.clear();loading.clear();loadAttempted.clear();busy=false;pinger.removeAll();initialRequested=false;}

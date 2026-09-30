@@ -1,0 +1,21 @@
+package dev.abros.anthub.client;
+import com.google.gson.*;
+import dev.abros.anthub.core.*;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.*;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import java.util.*;
+final class MapSharingScreen extends Screen implements CommunityScreen.Receiver {
+ private final Screen parent;private final RequestSession session=new RequestSession();private boolean loaded,busy;private String group="",groupName="Выбрать объединение",notice="";private JsonArray groups=new JsonArray();private long until;
+ MapSharingScreen(Screen parent){super(Component.literal("Карта объединения"));this.parent=parent;}
+ private int w(){return Math.min(380,width-40);}private int x(){return (width-w())/2;}private int top(){return DialogPanel.top(height,250);}private int bottom(){return height-top();}
+ private void request(String op,int minutes){if(busy)return;var j=new JsonObject();j.addProperty("action","community");j.addProperty("section","home");j.addProperty("op",op);j.addProperty("group",group);j.addProperty("minutes",minutes);busy=true;ServerMenuClient.request(session.begin(j,op.equals("toolsMapShare"),System.currentTimeMillis()));rebuildWidgets();}
+ @Override protected void init(){int y=top()+34;var choose=addRenderableWidget(Button.builder(Component.literal(groupName),b->minecraft.setScreen(new ChoicePopup(this,"Объединение",groups.asList().stream().map(e->Json.str(e.getAsJsonObject(),"title")).toList(),n->{group=Json.str(groups.get(n).getAsJsonObject(),"id");groupName=Json.str(groups.get(n).getAsJsonObject(),"title");rebuildWidgets();},b))).bounds(x(),y,w(),20).build());choose.active=!busy&&!groups.isEmpty()&&until<=System.currentTimeMillis();if(until>System.currentTimeMillis())choose.setTooltip(Tooltip.create(Component.literal("Чтобы сменить объединение, сначала остановите передачу позиции.")));var share=addRenderableWidget(Button.builder(Component.literal(until>System.currentTimeMillis()?"Остановить передачу позиции":"Передавать мою позицию · 1 час"),b->request("toolsMapShare",until>System.currentTimeMillis()?0:60)).bounds(x(),y+26,w(),20).tooltip(Tooltip.create(Component.literal("Позицию увидят участники выбранного объединения. Передача прекращается при выходе с сервера."))).build());share.active=!busy&&!group.isEmpty();var display=addRenderableWidget(Button.builder(Component.literal("Показывать участников на карте: "+(MapLayerClient.peersShown()?"да":"нет")),b->{MapLayerClient.togglePeers();rebuildWidgets();}).bounds(x(),y+52,w(),20).build());display.active=ManagedXaeroLayer.available();if(!display.active)display.setTooltip(Tooltip.create(Component.literal("Для отображения нужен Xaero’s Minimap.")));addRenderableWidget(Button.builder(Component.literal("Назад"),b->onClose()).bounds(x(),bottom()-28,w(),20).build());if(!loaded){loaded=true;request("toolsMapSettings",0);}}
+ public void receiveCommunity(JsonObject j){if(!session.receive(j))return;busy=false;if(j.has("error"))notice=Json.opt(j,"text","Недоступно");else{groups=j.getAsJsonArray("groups");var sharing=j.getAsJsonObject("sharing");group=Json.opt(sharing,"group",group);until=sharing.has("until")?sharing.get("until").getAsLong():0;for(var e:groups)if(Json.str(e.getAsJsonObject(),"id").equals(group))groupName=Json.str(e.getAsJsonObject(),"title");notice=groups.isEmpty()?"Сначала вступите в объединение":"Позиции не сохраняются в историю или личные метки.";}rebuildWidgets();}
+ @Override public void tick(){if(until>0&&until<=System.currentTimeMillis()){until=0;rebuildWidgets();}if(session.timeout(System.currentTimeMillis())){busy=false;notice="Нет ответа. Откройте экран ещё раз.";rebuildWidgets();}}
+ @Override public void renderBackground(GuiGraphics g,int mx,int my,float d){super.renderBackground(g,mx,my,d);DialogPanel.draw(g,width,w(),top(),bottom());}
+ @Override public void render(GuiGraphics g,int mx,int my,float d){super.render(g,mx,my,d);UiHeading.dialog(g,font,title,x(),top(),w());Ui.status(g,font,notice,x(),top()+118,w(),bottom()-34);}
+ @Override public void onClose(){session.cancel();minecraft.setScreen(parent);}
+ @Override public boolean isPauseScreen(){return false;}
+}

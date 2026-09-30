@@ -30,7 +30,7 @@ final class ServerUpdateScreen extends Screen {
         }).bounds(width/2-120,panelBottom()-54,240,20).build());
         addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(width/2-100,panelBottom()-28,200,20).build());
     }
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawCenteredString(font,title,width/2,panelTop()+20,0xE2BE75);
+    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-Math.min(440,width-40))/2,panelTop(),Math.min(440,width-40));
         Ui.status(g,font,server.name+"\n"+Client.tr("server.required",Json.opt(offer,"requiredVersion","?")).getString()+"\n"+Json.opt(offer,"repository","")+"\n\n"+status,(width-Math.min(440,width-40))/2,panelTop()+55,Math.min(440,width-40),panelBottom()-65);
     }
     @Override public void onClose(){minecraft.setScreen(parent);}

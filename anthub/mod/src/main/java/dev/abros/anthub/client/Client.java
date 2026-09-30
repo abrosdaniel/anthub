@@ -38,7 +38,7 @@ public final class Client {
         net.neoforged.neoforge.internal.BrandingControl.forEachLine(true, false,
                 (index, text) -> lines[0] = Math.max(lines[0], index + 1));
         int y = event.getScreen().height - 10 - lines[0] * (font.lineHeight + 1);
-        event.getGuiGraphics().drawString(font, "AntHub " + AntHub.VERSION, 2, y, 0xFFFFFFFF);
+        event.getGuiGraphics().drawString(font, "AntHub " + AntHub.VERSION, 2, y, UiPalette.color(0xFFFFFFFF));
     }
     public static void quickConnect(Screen parent){if(hub==null||hub.active()==null)return;var minecraft=Minecraft.getInstance();IO.submit(()->{try{var release=hub.installedRelease();minecraft.execute(()->{var screen=new HubScreen(parent,release);minecraft.setScreen(screen);screen.connectInstalled(release);});}catch(Exception e){failure(e);}});}
     public static void syncServers(){if(hub==null)return;try{

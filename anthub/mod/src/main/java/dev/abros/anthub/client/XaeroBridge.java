@@ -28,9 +28,9 @@ final class XaeroBridge {
    return supported=true;
   }catch(ReflectiveOperationException|RuntimeException|LinkageError unsupported){return supported=false;}
  }
- private static Object call(Object target,String name,Object...args)throws ReflectiveOperationException{
+ static Object call(Object target,String name,Object...args)throws ReflectiveOperationException{
   if(target==null)throw new IllegalStateException("Xaero ещё не подготовил карту этого сервера.");
-  for(var method:target.getClass().getMethods())if(method.getName().equals(name)&&method.getParameterCount()==args.length){boolean matches=true;var types=method.getParameterTypes();for(int i=0;i<types.length;i++)if(args[i]!=null&&!types[i].isInstance(args[i])&&!(types[i]==boolean.class&&args[i] instanceof Boolean))matches=false;if(matches)return method.invoke(target,args);}
+  for(var method:target.getClass().getMethods())if(method.getName().equals(name)&&method.getParameterCount()==args.length){boolean matches=true;var types=method.getParameterTypes();for(int i=0;i<types.length;i++)if(args[i]!=null&&!types[i].isInstance(args[i])&&!((types[i]==boolean.class&&args[i] instanceof Boolean)||(types[i]==int.class&&args[i] instanceof Integer)))matches=false;if(matches)return method.invoke(target,args);}
   throw new NoSuchMethodException(name);
  }
  static void edit(Screen parent,CommunityLocation place,int mode)throws ReflectiveOperationException{

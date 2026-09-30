@@ -10,5 +10,5 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 @EventBusSubscriber(modid="anthub",value=Dist.CLIENT)
 final class ButtonHints {
  @SubscribeEvent public static void initialized(ScreenEvent.Init.Post event){if(event.getScreen().getClass().getPackageName().equals(ButtonHints.class.getPackageName()))apply(event.getScreen());}
- static void apply(Screen screen){for(var child:screen.children())if(child instanceof Button button){String text=UiHelp.text(button.getMessage().getString());if(!text.isEmpty()){button.setTooltip(Tooltip.create(Component.literal(text)));button.setTooltipDelay(java.time.Duration.ofMillis(400));}}}
+ static void apply(Screen screen){for(var child:screen.children())if(child instanceof Button button){if(button instanceof CommunityCard||button instanceof PlayerRow||button instanceof NotificationRow)continue;String text=UiHelp.text(button.getMessage().getString());if(text.isEmpty()&&button.getTooltip()==null&&net.minecraft.client.Minecraft.getInstance().font.width(button.getMessage())>button.getWidth()-12)text=button.getMessage().getString();if(!text.isEmpty()){button.setTooltip(Tooltip.create(Component.literal(text)));button.setTooltipDelay(java.time.Duration.ofMillis(400));}}}
 }

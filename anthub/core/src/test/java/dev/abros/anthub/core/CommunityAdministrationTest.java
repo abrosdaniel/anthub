@@ -21,7 +21,7 @@ class CommunityAdministrationTest {
   db.transaction(()->{try(var q=db.connection().prepareStatement("INSERT INTO documents(id,section,body) VALUES(?,?,?::jsonb)")){for(String section:List.of("board","groups","events","polls")){q.setString(1,UUID.randomUUID().toString());q.setString(2,section);q.setString(3,"{\"title\":\"Example\",\"description\":\"Line one\\nLine two\"}");q.executeUpdate();}}return null;});
   var secret=new JsonObject();secret.addProperty("token","NEVER_EXPORT_THIS_TOKEN");store.record("private-test","token",secret);
   Path file=new CommunityAdministration(db,store).export(temp.resolve("exports"),"Operator");
-  var lines=Files.readAllLines(file);assertEquals(3,lines.size());Set<String> sections=new HashSet<>();for(String line:lines)sections.add(Json.str(Json.parse(line),"section"));assertEquals(Set.of("board","groups","events"),sections);assertFalse(Files.readString(file).contains("NEVER_EXPORT"));
+  var lines=Files.readAllLines(file);assertEquals(4,lines.size());Set<String> sections=new HashSet<>();for(String line:lines)sections.add(Json.str(Json.parse(line),"section"));assertEquals(Set.of("board","groups","events","polls"),sections);assertFalse(Files.readString(file).contains("NEVER_EXPORT"));assertEquals(Hashes.sha256(file),Files.readString(file.resolveSibling(file.getFileName()+".sha256")));var filtered=new CommunityAdministration(db,store).export(temp.resolve("exports"),"Operator","polls");assertEquals(1,Files.readAllLines(filtered).size());assertEquals("polls",Json.str(Json.parse(Files.readString(filtered).strip()),"section"));
   if(Files.getFileStore(file).supportsFileAttributeView("posix"))assertEquals(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"),Files.getPosixFilePermissions(file));
  }
 }

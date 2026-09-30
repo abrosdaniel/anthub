@@ -39,7 +39,7 @@ public final class SkinClient {
  static void upload(String name,boolean slim,byte[] bytes){if(busy)return;uploadBytes=bytes.clone();var begin=new JsonObject();begin.addProperty("op","begin");begin.addProperty("name",name);begin.addProperty("slim",slim);begin.addProperty("size",bytes.length);dispatch(session.begin(begin,true,System.currentTimeMillis()));}
  static void retry(){if(busy||!retryable)return;dispatch(session.retry(System.currentTimeMillis()));changed();}
  private static void dispatch(JsonObject command){pending=Json.str(command,"request");busy=true;retryable=false;status=uploadBytes==null?"":"Загрузка…";send(command);if(uploadBytes!=null)for(int offset=0;offset<uploadBytes.length;offset+=4096){var part=new JsonObject();part.addProperty("op","chunk");part.addProperty("request",pending);part.addProperty("offset",offset);part.addProperty("data",Base64.getEncoder().encodeToString(Arrays.copyOfRange(uploadBytes,offset,Math.min(uploadBytes.length,offset+4096))));send(part);}}
- private static void changed(){if(Minecraft.getInstance().screen instanceof SkinsScreen s)s.updated();}
+ private static void changed(){if(Minecraft.getInstance().screen instanceof SkinsScreen s)s.updated();else if(Minecraft.getInstance().screen instanceof QuickSkinsScreen s)s.updated();}
  private static void profile(JsonObject j){profiles.put(UUID.fromString(Json.str(j,"owner")),j);String hash=Json.opt(j,"hash","");if(!hash.isEmpty())texture(hash);}
  private static void receive(JsonObject j){try{switch(Json.str(j,"kind")){
   case "disabled"->{disabled=true;busy=false;session.cancel();uploadBytes=null;retryable=false;outgoing.clear();profiles.clear();status="Скины выключены на сервере";changed();}

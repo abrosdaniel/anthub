@@ -182,5 +182,6 @@
   "anthub.rollback.target": "Version after rollback: %s",
   "anthub.server.command.pardon": "Unban",
   "anthub.server.groups": "My communities",
-  "anthub.pack": "Pack"
+  "anthub.pack": "Pack",
+  "key.anthub.quickSkins": "Quick skin selection"
 }

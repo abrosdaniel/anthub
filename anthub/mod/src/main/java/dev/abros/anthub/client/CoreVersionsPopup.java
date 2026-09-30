@@ -45,12 +45,12 @@ final class CoreVersionsPopup extends ScrollScreen {
         Client.IO.submit(()->{try{String transaction=Client.hub.prepareCoreUpdate(Client.loadedJar,update);Client.pending=transaction;minecraft.execute(()->minecraft.setScreen(new RestartScreen(parent,transaction)));}catch(Exception failure){minecraft.execute(()->{installing=false;status=Errors.message(failure);rebuildWidgets();});}});
     }
     @Override public void renderBackground(GuiGraphics graphics,int x,int y,float delta){
-        graphics.fill(0,0,width,height,0x88090E14);graphics.fill(left(),34,left()+panelWidth(),bottom(),0xFF1B252E);graphics.renderOutline(left(),34,panelWidth(),bottom()-34,0xFF536879);
+        graphics.fill(0,0,width,height,UiPalette.color(0x88090E14));graphics.fill(left(),34,left()+panelWidth(),bottom(),UiPalette.color(0xFF1B252E));graphics.renderOutline(left(),34,panelWidth(),bottom()-34,UiPalette.color(0xFF536879));
     }
     @Override public void render(GuiGraphics graphics,int x,int y,float delta){
         ModalLayer.render(parent,this,graphics,delta,()->{super.render(graphics,x,y,delta);
-            graphics.drawString(font,"Установлена: "+AntHub.VERSION,left()+8,44,0xE2BE75);
-            graphics.drawString(font,font.plainSubstrByWidth(loading?"Загрузка…":status,panelWidth()-16),left()+8,bottom()-82,0xBAC7D2);graphics.flush();
+            graphics.drawString(font,"Установлена: "+AntHub.VERSION,left()+8,44,UiPalette.color(0xE2BE75));
+            graphics.drawString(font,font.plainSubstrByWidth(loading?"Загрузка…":status,panelWidth()-16),left()+8,bottom()-82,UiPalette.color(0xBAC7D2));graphics.flush();
         });
     }
     @Override public boolean mouseClicked(double x,double y,int button){if(button==0&&(x<left()||x>left()+panelWidth()||y<34||y>bottom())){onClose();return true;}return super.mouseClicked(x,y,button);}

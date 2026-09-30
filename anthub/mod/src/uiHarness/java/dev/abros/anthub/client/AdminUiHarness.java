@@ -1,0 +1,30 @@
+package dev.abros.anthub.client;
+import com.google.gson.*;
+import dev.abros.anthub.core.Json;
+import java.util.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.*;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.api.distmarker.Dist;
+@EventBusSubscriber(modid="anthub",value=Dist.CLIENT)
+public final class AdminUiHarness {
+ private static int step=-1;private static long at;
+ @SubscribeEvent public static void tick(ScreenEvent.Render.Post event){String output=System.getenv("ANTHUB_ADMIN_UI");if(output==null||step>=36)return;var mc=Minecraft.getInstance();if(step<0){if(!(mc.screen instanceof TitleScreen))return;step=0;at=System.currentTimeMillis()+1000;return;}if(System.currentTimeMillis()<at)return;at=System.currentTimeMillis()+1000;try{if(step>0){bounds();var dir=new java.io.File(output);dir.mkdirs();net.minecraft.client.Screenshot.grab(dir,"admin-"+step+".png",mc.getMainRenderTarget(),m->{});}int item=step++%12,scale=1+(step-1)/12;switch(item){
+ case 0->{mc.options.guiScale().set(scale);mc.resizeDisplay();mc.setScreen(new TitleScreen());for(var child:mc.screen.children())if(child instanceof AbstractButton b){boolean owned=b.getClass().getPackageName().equals("dev.abros.anthub.client");if(UiTheme.stylesButtons(mc.screen,b)!=owned)throw new IllegalStateException("Title style leaked outside AntHub");}}
+ case 1->{NextUiHarness.openPreview();mc.options.guiScale().set(scale);mc.resizeDisplay();mc.setScreen(new ServerMenuScreen(null,"admin"));if(mc.screen.children().stream().noneMatch(c->c instanceof UiSummaryCard))throw new IllegalStateException("Admin overview missing");}
+ case 2->{boolean found=false;for(var child:mc.screen.children())if(child instanceof UiSummaryCard card&&card.getMessage().getString().startsWith("Example Player 1.")){card.onPress();found=true;break;}if(!found)throw new IllegalStateException("Actionable priority report missing");if(!(mc.screen instanceof ReportDetailScreen))throw new IllegalStateException("Dashboard did not open report directly");}case 3->{mc.screen.onClose();summary("Сервер");if(mc.screen.children().stream().anyMatch(c->c instanceof TabButton))throw new IllegalStateException("Duplicate admin tabs");}case 4->summary("Объявления");
+ case 5->{mc.screen.onClose();mc.screen.onClose();summary("Состояние AntHub");if(mc.screen.children().stream().anyMatch(c->c instanceof Button b&&b.getMessage().getString().equals("Очередь обращений")))throw new IllegalStateException("Diagnostics mixed with support queue");}
+ case 6->{mc.screen.onClose();mc.screen.keyPressed(267,0,0);summary("Журнал действий");}
+ case 7->{mc.screen.onClose();summary("Данные сообщества");}
+ case 8->{var original=ServerMenuClient.previewTransport;boolean[] sent={false};ServerMenuClient.previewTransport=q->{if(!Json.opt(q,"action","").equals("exportCommunity")||!Json.opt(q,"section","").equals("board"))throw new IllegalStateException("Wrong export destination");sent[0]=true;};summary("Доска объявлений");ServerMenuClient.previewTransport=original;if(!sent[0])throw new IllegalStateException("Export was not requested");}
+ case 9->{mc.screen.onClose();summary("Сервер");if(mc.screen.children().stream().noneMatch(c->c instanceof UiSummaryCard card&&card.getMessage().getString().startsWith("Вход игроков.")))throw new IllegalStateException("Server controls missing");}
+ case 10->{var report=new JsonObject();report.addProperty("id",new UUID(0,91).toString());report.addProperty("revision",1);report.addProperty("player","Example Player");report.addProperty("status","open");report.addProperty("message","Не могу подключиться после обновления сборки. Появляется сообщение о несовпадении версий.");mc.setScreen(new ReportDetailScreen(mc.screen,report,true));}
+ case 11->{for(var c:mc.screen.children())if(c instanceof UiChoiceRow row){row.onPress();break;}for(var c:mc.screen.children())if(c instanceof MultiLineEditBox box)box.setValue("Обновите сборку через AntHub и подключитесь снова.");var original=ServerMenuClient.previewTransport;final boolean[] sent={false};ServerMenuClient.previewTransport=q->{if(!Json.opt(q,"action","").equals("reply"))throw new IllegalStateException("Wrong reply action");if(!q.get("resolved").getAsBoolean())throw new IllegalStateException("Close-after-reply was not sent");sent[0]=true;};press("Ответить");ServerMenuClient.previewTransport=original;if(!sent[0])throw new IllegalStateException("Reply was not sent");System.out.println("ANTHUB_ADMIN_REPLY_OK: explicit close-after-reply reaches request");}
+ }if(step==36){bounds();System.out.println("ANTHUB_ADMIN_UI_OK: title and admin flow, 36 states at GUI 1–3");NextUiHarness.openPreview();mc.setScreen(new ServerMenuScreen(mc.screen,"admin"));}}catch(Throwable error){step=36;System.out.println("ANTHUB_ADMIN_UI_FAILED");error.printStackTrace();}}
+ private static void summary(String title){for(var c:Minecraft.getInstance().screen.children())if(c instanceof UiSummaryCard card&&card.getMessage().getString().startsWith(title+".")){card.onPress();return;}throw new IllegalStateException("Missing summary: "+title);}
+ private static void press(String label){for(var c:Minecraft.getInstance().screen.children())if(c instanceof Button b&&b.getMessage().getString().equals(label)){b.onPress();return;}throw new IllegalStateException("Missing control: "+label);}
+ private static void bounds(){var s=Minecraft.getInstance().screen;var list=s.children().stream().filter(c->c instanceof AbstractWidget w&&w.visible).map(c->(AbstractWidget)c).toList();for(int i=0;i<list.size();i++){var a=list.get(i);if(a.getX()<0||a.getY()<0||a.getRight()>s.width||a.getBottom()>s.height)throw new IllegalStateException("Out of bounds: "+a.getMessage().getString());for(int j=i+1;j<list.size();j++){var b=list.get(j);if(a.getX()<b.getRight()&&b.getX()<a.getRight()&&a.getY()<b.getBottom()&&b.getY()<a.getBottom())throw new IllegalStateException("Overlapping: "+a.getMessage().getString()+" / "+b.getMessage().getString());}}}
+}

@@ -33,7 +33,10 @@ public class Remote {
  }
  private final HttpClient client=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).followRedirects(HttpClient.Redirect.NEVER).build();
  private static final ScheduledExecutorService TIMER=Executors.newSingleThreadScheduledExecutor(r->{Thread t=new Thread(r,"AntHub network timeout");t.setDaemon(true);return t;});
- private Path metadataCache;
+ private Path metadataCache;private volatile DownloadSettings downloadSettings=DownloadSettings.defaults();private long budgetAt;
+ public void configureDownloads(DownloadSettings value){downloadSettings=value;}
+ public DownloadSettings downloadSettings(){return downloadSettings;}
+ private void throttle(long bytes,AtomicBoolean cancel){long until; synchronized(this){long rate=(long)downloadSettings.limitMiB()*1024*1024;if(rate==0){budgetAt=0;return;}long now=System.nanoTime();budgetAt=Math.max(now,budgetAt)+bytes*1_000_000_000L/rate;until=budgetAt;}while(System.nanoTime()<until){if(cancel.get()||Thread.currentThread().isInterrupted())throw new CancellationException();java.util.concurrent.locks.LockSupport.parkNanos(Math.min(50_000_000L,until-System.nanoTime()));}}
  public void cacheMetadata(Path directory)throws IOException{Files.createDirectories(directory);metadataCache=directory;}
  public static URI https(String s){URI u=URI.create(s);if(!"https".equals(u.getScheme())||u.getHost()==null||u.getUserInfo()!=null||u.getFragment()!=null)throw new IllegalArgumentException("HTTPS required");return u;}
  private static void publicAddress(URI u)throws IOException{for(InetAddress a:InetAddress.getAllByName(u.getHost()))if(a.isAnyLocalAddress()||a.isLoopbackAddress()||a.isLinkLocalAddress()||a.isSiteLocalAddress()||a.isMulticastAddress()||(a.getAddress().length==16&&(a.getAddress()[0]&0xfe)==0xfc))throw new IOException("Private metadata endpoint rejected");}
@@ -86,7 +89,7 @@ public class Remote {
     Files.writeString(validator,response.headers().firstValue("ETag").orElse(""));
     AtomicLong position=new AtomicLong(offset);progress.accept(offset,0);
     try(OutputStream out=Files.newOutputStream(to,StandardOpenOption.CREATE,StandardOpenOption.WRITE,offset>0?StandardOpenOption.APPEND:StandardOpenOption.TRUNCATE_EXISTING)){
-     try{copy(in,out,limit-offset,cancel,n->progress.accept(position.addAndGet(n),n));}catch(IOException e){checkCancelled(cancel);throw new Unavailable("Download interrupted",e);}
+     try{copy(in,out,limit-offset,cancel,n->{throttle(n,cancel);progress.accept(position.addAndGet(n),n);});}catch(IOException e){checkCancelled(cancel);throw new Unavailable("Download interrupted",e);}
     }
     if(position.get()!=limit)throw new Unavailable("Incomplete download");return;
    }

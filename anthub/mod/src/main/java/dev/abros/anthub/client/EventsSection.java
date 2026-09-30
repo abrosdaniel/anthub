@@ -16,8 +16,10 @@ final class EventsSection {
                  host.action("Напомнить: "+(reminder<0?"выключено":reminder==0?"в начале":reminder+" мин."),()->net.minecraft.client.Minecraft.getInstance().setScreen(new ChoicePopup(host.surface(),"Напомнить о событии",List.of("За час","За 15 минут","За 5 минут","В начале","Не напоминать"),i->{var body=new JsonObject();body.addProperty("minutes",List.of(60,15,5,0,-1).get(i));host.send("plusReminder",body);})));
                  if(j.has("series")&&manage)host.secondary("Отменить будущие встречи серии",()->host.confirm("Отменить все будущие встречи серии?","plusCancelSeries",new JsonObject()));
                 }
+                if(j.has("cancelReason"))host.text("Причина отмены: "+Json.str(j,"cancelReason"));
+                if(ServerMenuClient.supports("player-tools")&&manage&&remaining<=0)for(var person:participants.entrySet()){String target=person.getKey();host.secondary("Посещение: "+person.getValue().getAsString()+(j.has("attendance")&&j.getAsJsonObject("attendance").has(target)?(j.getAsJsonObject("attendance").getAsJsonObject(target).get("present").getAsBoolean()?" · присутствовал":" · отсутствовал"):" · не отмечено"),()->net.minecraft.client.Minecraft.getInstance().setScreen(new ChoicePopup(host.surface(),"Посещение · "+person.getValue().getAsString(),List.of("Присутствовал","Не присутствовал"),index->{var body=new JsonObject();body.addProperty("target",target);body.addProperty("present",index==0);host.send("toolsAttendance",body);})));}
                 host.endCard(card);
-                if(can(j,"reschedule")){host.secondary("Перенести",()->host.form("Перенос события","reschedule",List.of(new CommunityScreen.Field("startsAt","Начало · местное время",30)),new JsonObject()));host.secondary("Отменить событие",()->host.confirm("Отменить событие?","cancel",new JsonObject()));}
+                if(can(j,"reschedule")){host.secondary("Перенести",()->host.form("Перенос события","reschedule",List.of(new CommunityScreen.Field("startsAt","Начало · местное время",30)),new JsonObject()));host.secondary("Отменить событие",()->host.form("Отмена события","cancel",List.of(new CommunityScreen.Field("reason","Причина отмены",500)),new JsonObject()));}
 
  }
 }

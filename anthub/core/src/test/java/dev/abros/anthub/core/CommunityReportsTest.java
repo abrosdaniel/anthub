@@ -16,6 +16,12 @@ class CommunityReportsTest {
     @org.junit.jupiter.api.AfterEach void disconnect()throws Exception{database.close();}
     @TempDir Path game;
     JsonObject report(){var j=new JsonObject();j.addProperty("message","Connection failed");j.addProperty("uuid","spoofed");j.addProperty("log","not allowed");j.addProperty("coreVersion","1.0.0");return j;}
+    @Test void dashboardPrioritizesUrgentThenUnassignedAndExcludesResolved()throws Exception{
+        var store=new CommunityReports(database);long now=System.currentTimeMillis();
+        String normal=store.submit(UUID.randomUUID(),"Normal",report(),now),urgent=store.submit(UUID.randomUUID(),"Urgent",report(),now+1),closed=store.submit(UUID.randomUUID(),"Closed",report(),now+2);
+        var classify=new JsonObject();classify.addProperty("request",UUID.randomUUID().toString());classify.addProperty("id",urgent);classify.addProperty("revision",1);classify.addProperty("operation","classify");classify.addProperty("category","technical");classify.addProperty("priority","high");store.manageRequest(UUID.randomUUID().toString(),"Admin",classify);store.reply(closed,"Admin","Done",true);
+        var dashboard=store.dashboard();assertEquals(2,dashboard.get("openReports").getAsInt());assertEquals(1,dashboard.get("highReports").getAsInt());var queue=dashboard.getAsJsonArray("attentionReports");assertEquals(2,queue.size());assertEquals(urgent,Json.str(queue.get(0).getAsJsonObject(),"id"));assertEquals(normal,Json.str(queue.get(1).getAsJsonObject(),"id"));assertTrue(queue.get(0).getAsJsonObject().has("revision"));
+    }
     @Test void storesOnlyAllowedFieldsAndServerIdentity()throws Exception{
         var store=new CommunityReports(database);UUID player=UUID.randomUUID();String id=store.submit(player,"Player",report(),System.currentTimeMillis());
         var saved=store.list(0).get(0).getAsJsonObject();assertEquals(id,Json.str(saved,"id"));assertEquals(player.toString(),Json.str(saved,"uuid"));assertFalse(saved.has("log"));

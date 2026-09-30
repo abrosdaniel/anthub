@@ -32,6 +32,7 @@ final class GroupsSection {
    if(can(j,"withdrawApplication")){host.text("Ваша заявка ожидает рассмотрения.");host.secondary("Отозвать мою заявку",()->host.confirm("Отозвать заявку?","withdrawApplication",new JsonObject()));}
    if(j.getAsJsonObject("invitations").has(me()))host.action("Ответить на приглашение",()->net.minecraft.client.Minecraft.getInstance().setScreen(new ChoicePopup(host.surface(),"Приглашение в объединение",List.of("Принять","Отклонить"),i->{var b=new JsonObject();b.addProperty("accept",i==0);host.send("invitation",b);})));
   }
+  if(ServerMenuClient.supports("player-tools")&&manage){if(j.has("expiresAt")&&j.get("expiresAt").getAsLong()>0)host.text("Завершится: "+local(j.get("expiresAt").getAsLong()));host.secondary("Срок объединения…",()->net.minecraft.client.Minecraft.getInstance().setScreen(new ChoicePopup(host.surface(),"Временное объединение",List.of("Бессрочно","1 день","7 дней","30 дней"),index->{var body=new JsonObject();body.addProperty("days",List.of(0,1,7,30).get(index));host.send("toolsTemporary",body);})));}
   if(can(j,"leave"))host.secondary("Выйти из объединения",()->host.confirm("Выйти из объединения?","leave",new JsonObject()));
   if(can(j,"invite"))host.secondary("Пригласить игрока",()->FeatureListScreen.pick(host.surface(),player->{var body=new JsonObject();body.addProperty("target",Json.str(player,"uuid"));host.send("invite",body);}));
   if(can(j,"recruiting"))host.secondary(j.get("recruiting").getAsBoolean()?"Закрыть набор":"Открыть набор",()->host.send("recruiting",new JsonObject()));

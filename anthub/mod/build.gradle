@@ -12,7 +12,7 @@ tasks.named('processResources') {
     dependsOn ':helper:standaloneJar'
     from(project(':helper').tasks.named('standaloneJar')) { into 'anthub'; rename { 'helper.jar' } }
 }
-tasks.named('jar') { from project(':core').sourceSets.main.output; archiveClassifier = 'game-module'; destinationDirectory = layout.buildDirectory.dir('internal') }
+tasks.named('jar') { exclude 'dev/abros/anthub/client/*UiHarness*.class', 'dev/abros/anthub/client/UiKitPreview*.class'; from project(':core').sourceSets.main.output; archiveClassifier = 'game-module'; destinationDirectory = layout.buildDirectory.dir('internal') }
 
 tasks.named('processResources') {
     from(rootProject.file('anthub/icon_256x256.png')) { into ''; rename { 'icon.png' } }

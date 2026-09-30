@@ -182,5 +182,6 @@
   "anthub.rollback.target": "Версия после отката: %s",
   "anthub.server.command.pardon": "Разбанить",
   "anthub.server.groups": "Мои объединения",
-  "anthub.pack": "Сборка"
+  "anthub.pack": "Сборка",
+  "key.anthub.quickSkins": "Быстрая смена скина"
 }

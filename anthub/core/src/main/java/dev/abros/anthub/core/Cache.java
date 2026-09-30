@@ -58,7 +58,8 @@ public final class Cache {
         Path p=path(f.sha256());if(contains(f.sha256()))return p;Files.createDirectories(p.getParent());
         IOException failures=new IOException("All download sources failed: "+f.path());
         var deferred=new java.util.HashMap<Integer,Remote.CoolingDown>();
-        for(int pass=0;pass<2;pass++)for(int index=0;index<f.urls().size();index++){
+        var order=java.util.stream.IntStream.range(0,f.urls().size()).boxed().sorted(java.util.Comparator.comparing(i->!remote.downloadSettings().preferred(f.urls().get(i)))).toList();
+        for(int pass=0;pass<2;pass++)for(int index:order){
             if(pass==1&&!deferred.containsKey(index))continue;
             if(cancel.get())throw new IOException("Cancelled");
             // Source-specific partials permit safe resume without mixing different mirrors.

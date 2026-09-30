@@ -12,6 +12,7 @@ final class ServerDatabase {
     private static dev.abros.anthub.core.ServerSettings settings;
     static dev.abros.anthub.core.ServerSettings settings(){if(settings==null)throw new IllegalStateException("AntHub server settings not loaded");return settings;}
 
+    static synchronized void liveSettings(dev.abros.anthub.core.ServerSettings value){settings=value;}
     static void install() {
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST,
             (net.neoforged.neoforge.event.server.ServerAboutToStartEvent event) -> { reset(); try { settings=dev.abros.anthub.core.ServerSettings.load(net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().toAbsolutePath().normalize()); } catch(java.io.IOException error){throw new IllegalStateException("AntHub: cannot read config/anthub-server.toml; startup stopped");} get(); });

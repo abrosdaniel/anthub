@@ -72,6 +72,6 @@ public final class ComponentsScreen extends ScrollScreen {
         Client.error=status;
         minecraft.setScreen(new ReviewScreen(this,Client.tr("install.failed"),status,Client.tr("retry"),()->{minecraft.setScreen(this);plan();}));
     }
-    @Override public void render(GuiGraphics g,int mx,int my,float pt){super.render(g,mx,my,pt);g.drawCenteredString(font,title,width/2,panelTop()+12,0xE2BE75);Ui.status(g,font,status,Math.max(10,width/2-150),panelBottom()-84,Math.min(300,width-20),panelBottom()-60);}
+    @Override public void render(GuiGraphics g,int mx,int my,float pt){super.render(g,mx,my,pt);UiHeading.dialog(g,font,title,width/2-150,panelTop(),300);Ui.status(g,font,status,Math.max(10,width/2-150),panelBottom()-84,Math.min(300,width-20),panelBottom()-60);}
     @Override public void onClose(){cancel.set(true);minecraft.setScreen(parent);}
 }

@@ -18,12 +18,13 @@ abstract class ScrollScreen extends Screen {
  protected void restoreScroll(int row){position=Math.max(0,row);firstRow=(int)position;}
  protected void resetScroll(){position=0;firstRow=0;}
  protected void rowsChanged(){rebuildWidgets();}
- @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(y>=top&&y<bottom){move(position-dy*3);return true;}return super.mouseScrolled(x,y,dx,dy);}
- private int thumb(){return Math.max(12,(bottom-top)*visibleRows/Math.max(1,count));}
+ @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(x>=scrollLeft()&&x<=right+7&&y>=top&&y<bottom){move(position-dy*3);return true;}return super.mouseScrolled(x,y,dx,dy);}
+ private int scrollLeft(){return children().stream().filter(c->c instanceof net.minecraft.client.gui.components.AbstractWidget w&&w.getY()>=top&&w.getY()<bottom).mapToInt(c->((net.minecraft.client.gui.components.AbstractWidget)c).getX()).min().orElse(right);}
+ private int thumb(){return UiScrollbar.thumb(top,bottom,visibleRows,count);}
  private void seek(double y){move((y-top-thumb()/2.0)/Math.max(1,bottom-top-thumb())*Math.max(0,count-visibleRows));}
  @Override public boolean mouseClicked(double x,double y,int button){if(button==0&&count>visibleRows&&x>=right&&x<right+7&&y>=top&&y<bottom){dragging=true;seek(y);return true;}return super.mouseClicked(x,y,button);}
  @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){if(dragging&&button==0){seek(y);return true;}return super.mouseDragged(x,y,button,dx,dy);}
  @Override public boolean mouseReleased(double x,double y,int button){dragging=false;return super.mouseReleased(x,y,button);}
  @Override public boolean keyPressed(int key,int scan,int modifiers){if((getFocused() instanceof net.minecraft.client.gui.components.EditBox||getFocused() instanceof net.minecraft.client.gui.components.MultiLineEditBox)&&getFocused().keyPressed(key,scan,modifiers))return true;switch(key){case 266:move(position-visibleRows);return true;case 267:move(position+visibleRows);return true;case 268:move(0);return true;case 269:move(count);return true;default:return super.keyPressed(key,scan,modifiers);}}
- @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);if(count>visibleRows){g.fill(right,top,right+6,bottom,AccessibilityScreen.background(0x88202020));int start=top+(int)((bottom-top-thumb())*position/(count-visibleRows));g.fill(right,start,right+6,start+thumb(),AccessibilityScreen.background(0xFFAAAAAA));}}
+ @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);UiScrollbar.draw(g,right,top,bottom,visibleRows,count,position);}
 }

@@ -22,7 +22,7 @@ public final class Hub {
         remote.cacheMetadata(game.resolve("anthub/cache/http"));repositories=new RepositoryClient(game,remote);cache=new Cache(game,remote);
         details=new ProjectDetails(game,remote);
         try{preferences=load("preferences.json");}catch(IOException|RuntimeException bad){preferences=new JsonObject();unreadablePreferences=true;recovery="Не удалось прочитать настройки проектов. Каталог доступен; восстановите anthub/preferences.json из резервной копии перед сохранением изменений.";backup("preferences.json");}
-        for(String repo:saved())details.load(repo);try{state=load("state.json");}catch(IOException|RuntimeException bad){state=new JsonObject();unreadableState=true;recovery="Не удалось прочитать anthub/state.json. Файл сохранён; установка заблокирована, чтобы не потерять учёт файлов. Восстановите его из резервной копии.";}
+        remote.configureDownloads(downloadSettings());for(String repo:saved())details.load(repo);try{state=load("state.json");}catch(IOException|RuntimeException bad){state=new JsonObject();unreadableState=true;recovery="Не удалось прочитать anthub/state.json. Файл сохранён; установка заблокирована, чтобы не потерять учёт файлов. Восстановите его из резервной копии.";}
         if(state.has("lock"))try{loadedManifest=Manifest.parse(state.getAsJsonObject("lock"));}catch(RuntimeException bad){recovery="Сохранённый манифест проекта несовместим или повреждён. Откройте проект и нажмите «Обновить»: учёт установленных файлов сохранён.";}
         if(!recovery.isEmpty())backup("state.json");
         if(!unreadableState)try{owned();}catch(IOException|RuntimeException bad){unreadableState=true;recovery="Повреждён учёт установленных файлов. Каталог доступен; восстановите anthub/state.json из резервной копии перед изменением сборки.";backup("state.json");}
@@ -35,6 +35,8 @@ public final class Hub {
         Files.createDirectories(backup.getParent());if(!Files.exists(backup))Files.copy(source,backup);
     }
     private JsonObject load(String name)throws IOException{Path p=game.resolve("anthub").resolve(name);return Files.exists(p)?Json.read(p):new JsonObject();}
+    public synchronized DownloadSettings downloadSettings(){try{return preferences.has("downloads")?Json.GSON.fromJson(preferences.get("downloads"),DownloadSettings.class):DownloadSettings.defaults();}catch(RuntimeException invalid){return DownloadSettings.defaults();}}
+    public synchronized void downloadSettings(DownloadSettings value)throws IOException{preferences.add("downloads",Json.GSON.toJsonTree(value));persist();remote.configureDownloads(value);}
     public synchronized JsonObject state(){return state.deepCopy();}
     public synchronized Manifest active(){return loadedManifest;}
     public synchronized String activeHash(){return Json.opt(state,"lockSha256","");}
@@ -125,7 +127,7 @@ public final class Hub {
         Set<String> needed=new HashSet<>();for(var c:plan.changes())if(c.after()!=null)needed.add(c.after());
         long required=plan.downloadBytes();for(var c:plan.changes())if(c.before()!=null)required+=Files.size(SafePaths.resolve(game,c.path()));
         if(Files.getFileStore(game).getUsableSpace()<required*2+16*1024*1024)throw new IOException("INSUFFICIENT_SPACE");
-        var pool=java.util.concurrent.Executors.newFixedThreadPool(4);var abort=new AtomicBoolean();
+        var pool=java.util.concurrent.Executors.newFixedThreadPool(downloadSettings().parallel());var abort=new AtomicBoolean();
         try{java.util.List<java.util.concurrent.Future<?>> jobs=new java.util.ArrayList<>();
         var completed=new java.util.concurrent.ExecutorCompletionService<Void>(pool);
         java.util.Map<String,Manifest.FileEntry> unique=new java.util.LinkedHashMap<>();for(var f:release.manifest().files())if(needed.contains(f.sha256()))unique.put(f.sha256(),f);

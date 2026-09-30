@@ -14,7 +14,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
     private final NavigableMap<Integer, JsonArray> pages = new TreeMap<>();
     private final Map<Integer,String> cursors=new HashMap<>();
     private JsonArray entries = new JsonArray();
-    private String request = "", status = "";
+    private String request = "", status = "",category="";
     private boolean started, busy, more, failed, preferencesLoaded;
     private final dev.abros.anthub.core.RequestSession session=new dev.abros.anthub.core.RequestSession();
     private int page, loadedPage, refreshThrough;
@@ -33,28 +33,21 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
     @Override protected void init() {
         ModalLayer.prepare(parent,this);
         int x = left(), w = panelWidth(), y = top();
-        if(activeVote())addRenderableWidget(Button.builder(Component.literal(font.plainSubstrByWidth("Голосование о наказании: "+Json.opt(ServerMenuClient.moderationVote,"name",""),w-40)),b->minecraft.setScreen(new ModerationVoteScreen(this,null))).bounds(x+10,y+36,w-28,24).build());
-        scrollArea(entries.size(), y + (activeVote()?72:40), bottom() - 86, 36, x + w - 10);
+        var categories=List.of("","groups","events","polls","board","ideas","help");var labels=List.of("Все уведомления","Объединения","События","Голосования","Объявления","Предложения","Обращения");addRenderableWidget(Button.builder(Component.literal(labels.get(categories.indexOf(category))+" ▾"),b->minecraft.setScreen(new ChoicePopup(this,"Категория",labels,index->{if(busy)return;category=categories.get(index);pages.clear();cursors.clear();entries=new JsonArray();page=loadedPage=refreshThrough=0;resetScroll();send("list","");rebuildWidgets();},b).current(categories.indexOf(category)))).bounds(x+10,y+34,w-28,20).build());
+        if(activeVote())addRenderableWidget(Button.builder(Component.literal(font.plainSubstrByWidth("Голосование о наказании: "+Json.opt(ServerMenuClient.moderationVote,"name",""),w-40)),b->minecraft.setScreen(new ModerationVoteScreen(this,null))).bounds(x+10,y+60,w-28,24).build());
+        scrollArea(entries.size(), y + (activeVote()?96:64), bottom() - (failed?86:64), 40, x + w - 10);
         for (int i = firstRow; i < Math.min(entries.size(), firstRow + visibleRows); i++) {
             var notice = entries.get(i).getAsJsonObject();
-            String label = (notice.get("read").getAsBoolean() ? "" : "● ") + Json.str(notice, "title");
-            addRenderableWidget(Button.builder(Component.literal(font.plainSubstrByWidth(label, w - 40)), b -> {
-                if (busy) return;
-                target = notice;
-                page = 0;
-                send("read", Json.str(notice, "id"));
-            }).bounds(x + 10, y + (activeVote()?72:40) + (i - firstRow) * 36, w - 28, 30).build());
+            addRenderableWidget(new NotificationRow(x+10,y+(activeVote()?96:64)+(i-firstRow)*40,w-28,notice,()->{if(busy)return;target=notice;page=0;send("read",Json.str(notice,"id"));}));
         }
-        addRenderableWidget(Button.builder(Component.literal("Прочитать всё"), b -> {
-            if (busy) return;
-            target = null;
-            refreshThrough = loadedPage;
-            page = 0;
-            send("read", "");
-        }).bounds(x + 10, bottom() - 76, (w - 24)/2, 20).build());
-        var retry=addRenderableWidget(Button.builder(Component.literal("Повторить"),b->{if(busy||!failed)return;failed=false;busy=true;sent=System.currentTimeMillis();var j=session.retry(sent);request=Json.str(j,"request");ServerMenuClient.request(j);rebuildWidgets();}).bounds(x+14+(w-24)/2,bottom()-76,(w-24)/2,20).build());retry.active=failed&&!busy;
-        var settings=addRenderableWidget(Button.builder(Component.literal("Настройки уведомлений"),b->minecraft.setScreen(new CommunityPreferences(this,preferences))).bounds(x+10,bottom()-52,w-20,20).build());settings.active=preferencesLoaded;
-        addRenderableWidget(Button.builder(Component.literal("Закрыть"), b -> onClose()).bounds(x + 10, bottom() - 28, w - 20, 20).build());
+        var readAll=addRenderableWidget(Button.builder(Component.literal("Прочитать всё"),b->{if(busy)return;target=null;refreshThrough=loadedPage;page=0;send("read","");}).bounds(x+10,bottom()-52,Math.min(130,(w-24)/2),20).build());
+        readAll.active=!busy&&java.util.stream.StreamSupport.stream(entries.spliterator(),false).anyMatch(e->!e.getAsJsonObject().get("read").getAsBoolean());
+        if(failed){var retry=addRenderableWidget(Button.builder(Component.literal("Повторить"),b->{if(busy)return;failed=false;busy=true;sent=System.currentTimeMillis();var j=session.retry(sent);request=Json.str(j,"request");ServerMenuClient.request(j);rebuildWidgets();}).bounds(x+10,bottom()-76,110,20).build());retry.active=!busy;}
+        int settingsX=x+14+Math.min(130,(w-24)/2);
+        var settings=addRenderableWidget(Button.builder(Component.literal("Настройки"),b->minecraft.setScreen(new CommunityPreferences(this,preferences))).bounds(settingsX,bottom()-52,w-10-(settingsX-x),20).build());settings.active=preferencesLoaded;
+        settings.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(preferencesLoaded?"Какие события присылать и как о них сообщать":"Настройки загружаются с сервера")));
+        addRenderableWidget(Button.builder(Component.literal("Закрыть"),b->onClose()).bounds(x+w-90,bottom()-28,80,20).build());
+
         if (!started) { started = true; send("list", ""); }
     }
 
@@ -64,7 +57,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
         sent = System.currentTimeMillis();
         request = UUID.randomUUID().toString();
         var j = new JsonObject();
-        j.addProperty("action", "community"); j.addProperty("section", "notifications");
+        j.addProperty("category",category);j.addProperty("action", "community"); j.addProperty("section", "notifications");
         j.addProperty("cursor",page==0?"":cursors.getOrDefault(page,""));j.addProperty("op", op); j.addProperty("id", id); j.addProperty("page", page); j.addProperty("request", request);
         j=session.begin(j,!op.equals("list"),sent);request=Json.str(j,"request");ServerMenuClient.request(j);
     }
@@ -86,6 +79,7 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
         entries = new JsonArray();
         var ids = new HashSet<String>();
         for (var batch : pages.values()) for (var entry : batch) if (ids.add(Json.str(entry.getAsJsonObject(), "id"))) entries.add(entry);
+        var grouped=new java.util.LinkedHashMap<String,JsonObject>();for(var element:entries){var entry=element.getAsJsonObject();String key=Json.str(entry,"section")+"|"+Json.opt(entry,"target","")+"|"+Json.str(entry,"title");if(grouped.containsKey(key)){var first=grouped.get(key);first.addProperty("groupCount",first.has("groupCount")?first.get("groupCount").getAsInt()+1:2);if(!entry.get("read").getAsBoolean())first.addProperty("read",false);}else grouped.put(key,entry.deepCopy());}entries=new JsonArray();grouped.values().forEach(entries::add);
         if (target != null) {
             var notice = target; target = null;
             String id = Json.opt(notice, "target", "");
@@ -122,14 +116,14 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
         return super.mouseClicked(x, y, button);
     }
     @Override public void renderBackground(GuiGraphics g, int x, int y, float d) {
-        g.fill(0, 0, width, height, 0xAA090E14); g.fill(left(), top(), left() + panelWidth(), bottom(), AccessibilityScreen.background(0xF51B252E));
-        g.renderOutline(left(), top(), panelWidth(), bottom() - top(), 0xFF536879);
+        g.fill(0, 0, width, height, UiPalette.color(0xAA090E14)); g.fill(left(), top(), left() + panelWidth(), bottom(), AccessibilityScreen.background(UiPalette.color(0xF51B252E)));
+        g.renderOutline(left(), top(), panelWidth(), bottom() - top(), UiPalette.color(0xFF536879));
     }
     @Override public void render(GuiGraphics g, int x, int y, float d) {
         ModalLayer.render(parent,this,g,d,()->{
             super.render(g,x,y,d);
-            g.drawCenteredString(font,title,width/2,top()+10,0xE2BE75);
-            if(!status.isEmpty()||busy)g.drawString(font,font.plainSubstrByWidth(busy?"Обновление…":status,panelWidth()-24),left()+12,top()+25,AccessibilityScreen.foreground(0xBAC7D2));
+            UiHeading.dialog(g,font,title,left(),top(),panelWidth());
+            if(!status.isEmpty()||busy)g.drawString(font,font.plainSubstrByWidth(busy?"Обновление…":status,panelWidth()-24),left()+12,top()+25,AccessibilityScreen.foreground(UiPalette.color(0xBAC7D2)));
         });
     }
     @Override public void onClose() { if(parent instanceof CommunityScreen screen)screen.invalidate();else if(parent instanceof FeatureListScreen screen)screen.invalidate();minecraft.setScreen(parent); }

@@ -2,23 +2,38 @@ package dev.abros.anthub.client;
 
 import com.google.gson.*;
 import dev.abros.anthub.core.Json;
+import dev.abros.anthub.core.RequestSession;
+import dev.abros.anthub.core.UiPayload;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.screens.*;
 import net.minecraft.network.chat.Component;
 import java.util.*;
 
-final class ServerMenuScreen extends ScrollScreen {
-    private final MenuSidebar nav=new MenuSidebar(this);private final Screen parent;private String tab="help",adminGroup="reports";private final ContentPane content=new ContentPane();
+final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Receiver {
+    private final MenuSidebar nav=new MenuSidebar(this);private final Screen parent;private String tab="help",adminGroup="overview";private final ContentPane content=new ContentPane();
     
     ServerMenuScreen(Screen parent,String tab){super(Client.tr("server.menu"));this.parent=parent;this.tab=tab;}
-    private record AdminRow(String label,List<String> captions,List<Runnable> actions){}
-    private final List<AdminRow> adminRows=new ArrayList<>();
     private String stateKey="";
+    private final RequestSession overviewSession=new RequestSession();private JsonObject overviewData=new JsonObject();private boolean overviewLoaded,overviewBusy,refreshOnReturn;private String overviewNotice="";private Button overviewRefresh;
+    private record Summary(String title,String value,List<String> details,int accent,Runnable action){}
+    private final List<Summary> summaries=new ArrayList<>();
+    private record DashboardSection(String title,List<Summary> items){}
+    private final List<DashboardSection> dashboardSections=new ArrayList<>();
+    private void section(String title){if(summaries.isEmpty())dashboardSections.add(new DashboardSection(title,List.of()));else for(int i=0;i<summaries.size();i+=columns())dashboardSections.add(new DashboardSection(title,List.copyOf(summaries.subList(i,Math.min(summaries.size(),i+columns())))));summaries.clear();}
+
+    private String metric(String key){return dev.abros.anthub.core.DisplayCounts.text(overviewData,key,overviewBusy?"…":"—");}
+    private void group(String group){adminGroup=group;resetScroll();rebuildWidgets();}
+    private void loadOverview(){if(overviewBusy||!ServerMenuClient.admin()||!ServerMenuClient.supports("player-tools"))return;overviewLoaded=true;overviewBusy=true;if(overviewRefresh!=null)overviewRefresh.active=false;overviewNotice="Обновляем сводку…";var q=new JsonObject();q.addProperty("action","adminDashboard");ServerMenuClient.request(overviewSession.begin(q,false,System.currentTimeMillis()));}
+    public void receiveCommunity(JsonObject response){if(!overviewSession.receive(response))return;overviewBusy=false;overviewNotice=response.has("error")?Json.opt(response,"text","Сводка недоступна"):"";if(overviewRefresh!=null)overviewRefresh.active=true;if(!response.has("error")&&!UiPayload.same(overviewData,response)){overviewData=response.deepCopy();rebuildWidgets();}}
+
     private boolean stateFlag(String key){return ServerMenuClient.state.has(key)&&ServerMenuClient.state.get(key).getAsBoolean();}
     private boolean scheduled(){return ServerMenuClient.state.has("restartAt")&&ServerMenuClient.state.get("restartAt").getAsLong()>0;}
-    private String modeKey(){return stateFlag("maintenance")+":"+scheduled()+":"+stateFlag("pinned");}
-    private void row(String label,String caption,Runnable action){adminRows.add(new AdminRow(label,List.of(caption),List.of(action)));}
+    private String modeKey(){return stateFlag("maintenance")+":"+scheduled()+":"+stateFlag("pinned")+":"+dev.abros.anthub.core.DisplayCounts.text(ServerMenuClient.state,"online","");}
+    private int columns(){return width-nav.left()-14>=440?2:1;}
+    private void card(String title,String value,String first,String second,int accent,Runnable action){summaries.add(new Summary(title,value,List.of(first,second),accent,action));}
+    private void export(String section){var q=new JsonObject();q.addProperty("action","exportCommunity");q.addProperty("section",section);ServerMenuClient.request(q);}
+    private String sectionTitle(){return switch(adminGroup){case "server"->"Управление сервером";case "messages"->"Объявления";case "data"->"Экспорт данных";default->"Администрирование";};}
     private void button(String key,int x,int y,int w,Runnable action){addRenderableWidget(Button.builder(Client.tr(key),b->action.run()).bounds(x,y,w,20).build());}
     @Override protected void init(){
         nav.build(tab,this::addRenderableWidget);
@@ -27,33 +42,57 @@ final class ServerMenuScreen extends ScrollScreen {
         if(tab.equals("help")){addRenderableWidget(Button.builder(Component.literal("Интерфейс и голос…"),b->minecraft.setScreen(new ChoicePopup(this,"Настройки клиента",List.of("Доступность интерфейса","Диагностика Plasmo Voice"),i->minecraft.setScreen(i==0?new AccessibilityScreen(this):new VoiceDiagnosticsScreen(this))))).bounds(nav.left(),42,Math.min(180,width-nav.left()-14),20).build());button("server.report",nav.left(),height-72,Math.min(180,(width-nav.left()-22)/2),()->minecraft.setScreen(new ReportScreen(this)));button("server.myReports",nav.left()+(width-nav.left())/2,height-72,Math.min(180,(width-nav.left()-22)/2),()->FeatureListScreen.open(this,"myReports"));}
         if(tab.equals("admin")){
             int left=nav.left(),available=width-left-14;
-            var groups=new ArrayList<String>();if(ServerMenuClient.may("anthub.reports"))groups.add("reports");if(ServerMenuClient.may("anthub.announce")||ServerMenuClient.may("anthub.maintenance")||ServerMenuClient.may("anthub.restart"))groups.add("server");if(ServerMenuClient.admin()||ServerMenuClient.may("anthub.diagnostics"))groups.add("journal");
-            int third=(available-4*Math.max(0,groups.size()-1))/Math.max(1,groups.size());
-            if(!groups.contains(adminGroup)&&!groups.isEmpty())adminGroup=groups.getFirst();
-            for(int i=0;i<groups.size();i++){String group=groups.get(i);String label=switch(group){case "reports"->"Обращения";case "server"->"Сервер";default->"Журнал";};var control=addRenderableWidget(Button.builder(Component.literal(label),b->{adminGroup=group;resetScroll();rebuildWidgets();}).bounds(left+i*(third+4),42,third,20).build());control.active=!group.equals(adminGroup);}
-            adminRows.clear();stateKey=modeKey();
-            if(adminGroup.equals("reports"))row("Обращения игроков","Открыть очередь",()->FeatureListScreen.open(this,"reports"));
-            if(adminGroup.equals("journal")){
-                if(ServerMenuClient.admin())row("Действия администрации","Открыть журнал",()->FeatureListScreen.open(this,"history"));
-                if(ServerMenuClient.may("anthub.diagnostics"))row("Состояние AntHub и подключений","Диагностика",()->ServerMenuClient.request("diagnostics"));
-                if(ServerMenuClient.admin()&&ServerMenuClient.supports("admin-tools"))row("Данные сообщества","Экспорт сообщества",()->ServerMenuClient.request("exportCommunity"));
-            }
-            if(adminGroup.equals("server")){
-                if(ServerMenuClient.may("anthub.announce"))row("Разовое сообщение всем игрокам","Отправить объявление",()->action("announce"));
-                if(ServerMenuClient.may("anthub.maintenance"))row(stateFlag("maintenance")?"Обслуживание: "+Json.opt(ServerMenuClient.state,"maintenanceReason",""):"Вход игроков открыт",stateFlag("maintenance")?"Завершить обслуживание":"Включить обслуживание",()->action(stateFlag("maintenance")?"maintenanceOff":"maintenance"));
-                if(ServerMenuClient.may("anthub.restart"))row(scheduled()?"Остановка запланирована":"Перезапуск выполняется панелью",scheduled()?"Отменить остановку":"Запланировать остановку",()->action(scheduled()?"restartOff":"restart"));
-                if(ServerMenuClient.may("anthub.announce")&&ServerMenuClient.supports("admin-tools")){
-                    if(stateFlag("pinned"))adminRows.add(new AdminRow("Закреплённое сообщение",List.of("Изменить","Снять"),List.of(()->action("pinAnnouncement"),()->{var j=new JsonObject();j.addProperty("action","pinAnnouncement");j.addProperty("text","");j.addProperty("minutes",1);ServerMenuClient.request(j);})));
-                    else row("Сообщение на главной","Закрепить сообщение",()->action("pinAnnouncement"));
+            boolean server=ServerMenuClient.may("anthub.announce")||ServerMenuClient.may("anthub.maintenance")||ServerMenuClient.may("anthub.restart");
+            if(!adminGroup.equals("overview"))addRenderableWidget(Button.builder(Component.literal("К обзору"),b->group("overview")).bounds(left,42,100,20).build());
+            summaries.clear();stateKey=modeKey();
+            dashboardSections.clear();
+            if(adminGroup.equals("overview")){
+                section("Сводка на сейчас");
+                if(ServerMenuClient.may("anthub.reports")){
+                    if(overviewData.has("attentionReports"))for(var entry:overviewData.getAsJsonArray("attentionReports")){var report=entry.getAsJsonObject();card(Json.opt(report,"player","Игрок"),Json.opt(report,"priority","normal").equals("high")?"Высокий приоритет":"Ожидает ответа",Json.opt(report,"message",""),Json.opt(report,"assignedName","").isBlank()?"Ответственный не назначен":"Ответственный: "+Json.opt(report,"assignedName",""),0xFFEF7777,()->minecraft.setScreen(new ReportDetailScreen(this,report,true)));}
+                    if(summaries.isEmpty())card("Обращения игроков",overviewBusy?"Загрузка…":metric("openReports").equals("0")?"Все обращения обработаны":"Открыть очередь","Назначение ответственного и ответы","Открытые и закрытые обращения",0xFFEF7777,()->FeatureListScreen.open(this,"reports"));
+                    section("Требуют внимания · приоритетные и самые старые");
                 }
+                if(server)card("Сервер",stateFlag("maintenance")?"Обслуживание":"Вход открыт",scheduled()?"Остановка запланирована":"Остановка не запланирована",stateFlag("pinned")?"Объявление закреплено":"Нет закреплённого объявления",0xFF79CBA6,()->group("server"));
+                if(ServerMenuClient.admin()&&ServerMenuClient.supports("player-tools"))card("Состояние AntHub",overviewData.has("recentErrors")?overviewData.getAsJsonArray("recentErrors").isEmpty()?"Ошибок не зафиксировано":overviewData.getAsJsonArray("recentErrors").size()+" последних ошибок":"Нет данных об ошибках","Очередь записи: "+metric("storageQueue"),"Очередь чтения: "+metric("readQueue"),0xFFB49AE8,()->minecraft.setScreen(new AdminDashboardScreen(this,true)));
+                else if(ServerMenuClient.may("anthub.diagnostics"))card("Состояние AntHub","Проверка подключений","Состояние мода и интеграций","Получить текущий отчёт",0xFFB49AE8,()->ServerMenuClient.request("diagnostics"));
+                if(!summaries.isEmpty())section("Сервер и обслуживание");
+                if(ServerMenuClient.admin())card("Журнал действий","История администрации","Кто и что изменил","Открыть записи и подробности",0xFF82B6F2,()->FeatureListScreen.open(this,"history"));
+                if(ServerMenuClient.admin()&&ServerMenuClient.supports("admin-tools"))card("Данные сообщества","Экспорт","Выберите нужный раздел","Выгрузка данных с сервера",0xFFE2BE75,()->group("data"));
+                if(!summaries.isEmpty())section("Инструменты администрации");
+            }else if(adminGroup.equals("server")){
+                if(ServerMenuClient.may("anthub.maintenance"))card("Вход игроков",stateFlag("maintenance")?"Обслуживание включено":"Открыт",stateFlag("maintenance")?Json.opt(ServerMenuClient.state,"maintenanceReason",""):"Игроки могут подключаться",stateFlag("maintenance")?"Нажмите, чтобы завершить":"Включить обслуживание с причиной",0xFF79CBA6,()->action(stateFlag("maintenance")?"maintenanceOff":"maintenance"));
+                if(ServerMenuClient.may("anthub.restart"))card("Остановка сервера",scheduled()?"Запланирована":"Не запланирована","Перезапуск выполняется панелью",scheduled()?"Отменить запланированную остановку":"Указать время и причину остановки",0xFFEF7777,()->action(scheduled()?"restartOff":"restart"));
+                if(ServerMenuClient.may("anthub.announce"))card("Объявления",stateFlag("pinned")?"Есть закреплённое":"Нет закреплённого","Разовое сообщение всем игрокам","Сообщение на главной AntHub",0xFFE2BE75,()->group("messages"));
+                if(ServerMenuClient.admin()&&ServerMenuClient.supports("player-tools"))card("Настройки сервера","Просмотр и изменения","Проверка значений перед применением","Изменения с подтверждением",0xFF82B6F2,()->minecraft.setScreen(new ServerSettingsReviewScreen(this)));
+            }else if(adminGroup.equals("messages")&&ServerMenuClient.may("anthub.announce")){
+                card("Разовое объявление","Отправить игрокам","Текст появится у всех игроков","Сообщение и подтверждение отправки",0xFFE2BE75,()->action("announce"));
+                if(ServerMenuClient.supports("admin-tools")){
+                    card("Сообщение на главной",stateFlag("pinned")?"Изменить закреплённое":"Закрепить объявление",stateFlag("pinned")?Json.opt(ServerMenuClient.state,"pinnedText",""):"Показывается на главной AntHub","Укажите текст и срок показа",0xFF79CBA6,()->action("pinAnnouncement"));
+                    if(stateFlag("pinned"))card("Снять объявление","Убрать с главной","Текущее сообщение перестанет показываться","Действие потребует подтверждения",0xFFEF7777,()->minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(this);if(yes){var q=new JsonObject();q.addProperty("action","pinAnnouncement");q.addProperty("text","");q.addProperty("minutes",1);ServerMenuClient.request(q);}},Component.literal("Снять объявление?"),Component.literal("Сообщение исчезнет с главной AntHub."))));
+                }
+            }else if(adminGroup.equals("data")&&ServerMenuClient.admin()&&ServerMenuClient.supports("admin-tools")){
+                String[] sections={"","board","groups","events","polls","ideas"},labels={"Все разделы","Доска объявлений","Объединения","События","Голосования","Предложения"};
+                for(int i=0;i<sections.length;i++){String section=sections[i];card(labels[i],"Выгрузить данные","Экспорт выбранного раздела","Файл создаётся на сервере",0xFFE2BE75,()->export(section));}
             }
-            scrollArea(adminRows.size(),76,height-64,64,width-10);
-            for(int row=firstRow;row<Math.min(adminRows.size(),firstRow+visibleRows);row++){
-                var item=adminRows.get(row);int y=76+(row-firstRow)*64+24;int bw=Math.min(210,(available-16-4*(item.actions.size()-1))/item.actions.size());
-                for(int i=0;i<item.actions.size();i++){var callback=item.actions.get(i);String caption=item.captions.get(i);var control=addRenderableWidget(Button.builder(Component.literal(font.plainSubstrByWidth(caption,bw-12)),b->callback.run()).bounds(left+8+i*(bw+4),y,bw,20).build());control.setTooltip(control.getMessage().getString().equals(caption)?null:Tooltip.create(Component.literal(caption)));}
+            int columns=columns(),tileWidth=(available-8*(columns-1))/columns;
+            if(adminGroup.equals("overview")){
+                scrollArea(dashboardSections.size(),42,height-64,112,width-10);
+                for(int row=firstRow;row<Math.min(dashboardSections.size(),firstRow+visibleRows);row++){
+                    int y=42+(row-firstRow)*112;var section=dashboardSections.get(row);
+                    if(row==0){String[] keys={"openReports","unassignedReports","highReports"},labels={"Открытые обращения","Без ответственного","Высокий приоритет"};int statWidth=(available-8)/3;for(int i=0;i<3;i++){String key=keys[i];if(ServerMenuClient.may("anthub.reports"))addRenderableWidget(new UiMetricCard(left+i*(statWidth+4),y+18,statWidth,labels[i],metric(key)));}if(ServerMenuClient.may("anthub.reports"))addRenderableWidget(Button.builder(Component.literal("Все обращения"),b->FeatureListScreen.open(this,"reports")).bounds(left,y+80,110,20).build());continue;}
+                    int count=section.items.size(),cardWidth=(available-8*(Math.min(count,columns)-1))/Math.max(1,Math.min(count,columns));
+                    for(int n=0;n<Math.min(count,columns);n++){var item=section.items.get(n);addRenderableWidget(new UiSummaryCard(left+n*(cardWidth+8),y+18,cardWidth,item.title,item.value,item.details,item.accent,item.action));}
+                }
+                if(ServerMenuClient.admin()&&ServerMenuClient.supports("player-tools")){overviewRefresh=addRenderableWidget(Button.builder(Component.literal("Обновить"),b->loadOverview()).bounds(left,height-28,90,20).build());overviewRefresh.active=!overviewBusy;}
+            }else{
+                scrollArea((summaries.size()+columns-1)/columns,76,height-64,96,width-10);
+                for(int n=firstRow*columns;n<Math.min(summaries.size(),(firstRow+visibleRows)*columns);n++){var item=summaries.get(n);addRenderableWidget(new UiSummaryCard(left+n%columns*(tileWidth+8),76+(n/columns-firstRow)*96,tileWidth,item.title,item.value,item.details,item.accent,item.action));}
             }
+
         }
         button("back",width-114,height-28,100,()->onClose());
+        if(tab.equals("admin")&&adminGroup.equals("overview")&&(!overviewLoaded||refreshOnReturn)){refreshOnReturn=false;loadOverview();}
     }
     private void action(String name){
         if(name.equals("maintenanceOff")||name.equals("restartOff")){
@@ -63,21 +102,16 @@ final class ServerMenuScreen extends ScrollScreen {
             minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(this);if(yes)ServerMenuClient.request(j);},Client.tr("server.confirm"),Client.tr("server."+name)));
         }else minecraft.setScreen(new ActionForm(this,name));
     }
-    void refreshPermissions(){rebuildWidgets();}
-    @Override public void tick(){if(tab.equals("admin")&&!ServerMenuClient.staff()){CommunityScreen.open(parent,"home");}else if(tab.equals("admin")&&!stateKey.equals(modeKey()))rebuildWidgets();}
+    @Override public void removed(){refreshOnReturn=true;}
+    void refreshPermissions(){if(!ServerMenuClient.admin()){overviewSession.cancel();overviewBusy=false;overviewData=new JsonObject();}rebuildWidgets();}
+    @Override public void tick(){if(tab.equals("admin")&&!ServerMenuClient.staff()){CommunityScreen.open(parent,"home");}else if(tab.equals("admin")&&!stateKey.equals(modeKey()))rebuildWidgets();if(overviewSession.timeout(System.currentTimeMillis())){overviewBusy=false;overviewNotice="Нет ответа. Обновите сводку.";if(overviewRefresh!=null)overviewRefresh.active=true;}}
     private String body(){var j=ServerMenuClient.state;
         if(tab.equals("help"))return Json.opt(j,"help","")+"\n\n"+Client.tr("server.helptext").getString();
         return Client.tr("server.admintext").getString();
     }
-    @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);if(tab.equals("admin")){
-        for(int row=firstRow;row<Math.min(adminRows.size(),firstRow+visibleRows);row++){int top=76+(row-firstRow)*64;g.fill(nav.left(),top,width-12,top+58,AccessibilityScreen.background(0xCE25232A));g.fill(nav.left(),top,nav.left()+3,top+58,AccessibilityScreen.background(0xFFE2BE75));String label=adminRows.get(row).label;
-            if(adminGroup.equals("server")&&label.equals("Остановка запланирована"))label+=" · "+Math.max(0,(ServerMenuClient.state.get("restartAt").getAsLong()-System.currentTimeMillis())/1000)+" с";
-            if(adminGroup.equals("server")&&label.startsWith("Обслуживание:")){long until=ServerMenuClient.state.has("maintenanceUntil")?ServerMenuClient.state.get("maintenanceUntil").getAsLong():0;label=(until>0?"Ещё "+Math.max(0,(until-System.currentTimeMillis()+59999)/60000)+" мин · ":"Бессрочно · ")+label;}
-            g.drawString(font,font.plainSubstrByWidth(label,width-nav.left()-26),nav.left()+8,top+7,0xE2BE75);
-        }
-    }}
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);g.drawCenteredString(font,font.plainSubstrByWidth(ServerMenuClient.header(),width-20),width/2,18,0xE2BE75);content.text(body());if(!tab.equals("admin"))content.render(g,font);
-        Ui.status(g,font,ServerMenuClient.result,nav.left(),height-48,width-28,height-32);}
+    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.page(g,font,Component.literal(tab.equals("admin")?sectionTitle():ServerMenuClient.header()),width);content.text(body());if(!tab.equals("admin"))content.render(g,font);
+        if(tab.equals("admin")&&adminGroup.equals("overview"))for(int row=firstRow;row<Math.min(dashboardSections.size(),firstRow+visibleRows);row++)g.drawString(font,UiKit.fit(font,dashboardSections.get(row).title,width-nav.left()-20),nav.left(),42+(row-firstRow)*112,UiKit.muted(),false);
+        Ui.status(g,font,adminGroup.equals("overview")&&!overviewNotice.isEmpty()?overviewNotice:ServerMenuClient.result,nav.left(),height-48,width-28,height-32);}
     @Override public boolean keyPressed(int key,int scan,int modifiers){
         if(!tab.equals("admin")&&(key==266||key==267)){content.scroll(nav.left()+8,106,key==266?6:-6);return true;}
         return super.keyPressed(key,scan,modifiers);
@@ -87,7 +121,7 @@ final class ServerMenuScreen extends ScrollScreen {
     @Override public boolean mouseDragged(double x,double y,int b,double dx,double dy){return b==0&&content.drag(y)||super.mouseDragged(x,y,b,dx,dy);}
     @Override public boolean mouseReleased(double x,double y,int b){content.release();return super.mouseReleased(x,y,b);}
     @Override public boolean isPauseScreen(){return false;}
-    @Override public void onClose(){minecraft.setScreen(parent);}
+    @Override public void onClose(){if(tab.equals("admin")&&!adminGroup.equals("overview")){group(adminGroup.equals("messages")?"server":"overview");return;}overviewSession.cancel();minecraft.setScreen(parent);}
 
     private static final class ActionForm extends Screen {
         private final Screen parent;private final String action;private EditBox message,duration;private String error="";
@@ -115,8 +149,8 @@ final class ServerMenuScreen extends ScrollScreen {
             minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(yes?parent:this);if(yes)ServerMenuClient.request(j);},title,summary));
         }
         @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);int left=(width-Math.min(420,width-40))/2;
-            g.drawCenteredString(font,title,width/2,top()+14,0xE2BE75);g.drawString(font,Client.tr("server.message"),left,top()+40,AccessibilityScreen.foreground(0xEEEEEE));
-            if(timed())g.drawString(font,durationLabel(),left,top()+84,AccessibilityScreen.foreground(0xEEEEEE));
+            UiHeading.dialog(g,font,title,left,top(),Math.min(420,width-40));g.drawString(font,Client.tr("server.message"),left,top()+40,AccessibilityScreen.foreground(UiPalette.color(0xEEEEEE)));
+            if(timed())g.drawString(font,durationLabel(),left,top()+84,AccessibilityScreen.foreground(UiPalette.color(0xEEEEEE)));
             Ui.status(g,font,error.isEmpty()?(action.equals("pinAnnouncement")?"Сообщение появится на главной до окончания указанного срока.":Client.tr("server.form."+action).getString()):error,left,top()+(timed()?130:90),Math.min(420,width-40),bottom()-36);
         }
         @Override public void tick(){if(!ServerMenuClient.available())minecraft.setScreen(null);else if(!ServerMenuClient.may("anthub."+(action.equals("pinAnnouncement")?"announce":action)))minecraft.setScreen(parent);}

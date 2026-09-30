@@ -23,7 +23,7 @@ final class VoiceDiagnosticsScreen extends ScrollScreen {
   }catch(ReflectiveOperationException|LinkageError|RuntimeException unsupported){/* Values already obtained remain valid; unavailable API fields stay unknown. */}
   var next=List.of("Plasmo Voice: "+(installed?"установлен":"не установлен"),"UDP: "+connection,"Устройство записи: "+device,"Микрофон: "+microphone,"Серверный mute: "+muted,"Настройки Plasmo Voice: клавиша V");if(!next.equals(lines)){lines=next;rebuildWidgets();}
  }
- @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);g.drawCenteredString(font,title,width/2,panelTop()+12,0xE2BE75);int left=Math.max(12,width/2-150);for(int i=firstRow;i<Math.min(lines.size(),firstRow+visibleRows);i++)g.drawString(font,font.plainSubstrByWidth(lines.get(i),Math.min(300,width-24)),left,panelTop()+36+(i-firstRow)*24,0xEEEEEE);}
+ @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);UiHeading.dialog(g,font,title,(width-Math.min(320,width-24))/2,panelTop(),Math.min(320,width-24));int left=Math.max(12,width/2-150);for(int i=firstRow;i<Math.min(lines.size(),firstRow+visibleRows);i++)g.drawString(font,font.plainSubstrByWidth(lines.get(i),Math.min(300,width-24)),left,panelTop()+36+(i-firstRow)*24,UiPalette.color(0xEEEEEE));}
  @Override public boolean isPauseScreen(){return false;}
  @Override public void onClose(){minecraft.setScreen(parent);}
 }

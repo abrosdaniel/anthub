@@ -11,8 +11,9 @@ final class ModalLayer {
   boolean root=PASS.get()==null;if(root)PASS.set(new Pass());
   try{
    if(parent!=null){prepare(parent,modal);parent.render(graphics,-10000,-10000,delta);}
-   // Vanilla widgets/text can add their own depth. Reserve room between each modal.
-   int layer=++PASS.get().level*100;
+   // Item rendering adds up to 200 depth units; tooltips also raise their plane.
+   // Keep the complete foreground window above all geometry from its parent.
+   int layer=++PASS.get().level*600;
    graphics.flush();graphics.pose().pushPose();
    try{graphics.pose().translate(0,0,layer);contents.run();graphics.flush();}finally{graphics.pose().popPose();}
   }finally{if(root)PASS.remove();}
