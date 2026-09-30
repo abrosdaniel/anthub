@@ -8,7 +8,9 @@ import net.minecraft.client.gui.screens.Screen;
 public final class UiTheme {
  private UiTheme(){} private static final class HoverState {float value;long at;HoverState(float value,long at){this.value=value;this.at=at;}}
  private static final Map<AbstractWidget,HoverState> motion=new WeakHashMap<>();
- public static boolean stylesButtons(Screen s,net.minecraft.client.gui.components.AbstractButton widget){return owns(s)||(s instanceof net.minecraft.client.gui.screens.TitleScreen&&widget.getClass().getPackageName().equals("dev.abros.anthub.client"));}
+ private static final ThreadLocal<Screen> RENDER_SCREEN=new ThreadLocal<>();
+ static void rendering(Screen screen,Runnable render){Screen previous=RENDER_SCREEN.get();RENDER_SCREEN.set(screen);try{render.run();}finally{if(previous==null)RENDER_SCREEN.remove();else RENDER_SCREEN.set(previous);}}
+ public static boolean stylesButtons(Screen s,net.minecraft.client.gui.components.AbstractButton widget){if(RENDER_SCREEN.get()!=null)s=RENDER_SCREEN.get();return owns(s)||(s instanceof net.minecraft.client.gui.screens.TitleScreen&&widget.getClass().getPackageName().equals("dev.abros.anthub.client"));}
  public static boolean owns(Screen s){return s!=null&&s.getClass().getPackageName().equals("dev.abros.anthub.client");}
  static float hover(AbstractWidget w){float target=w.isHoveredOrFocused()?1:0;if(!AccessibilityScreen.animations())return target;long now=System.nanoTime();var state=motion.get(w);if(state==null){motion.put(w,new HoverState(target,now));return target;}float step=Math.min(1,(now-state.at)/120000000f);state.at=now;state.value+=Math.copySign(Math.min(Math.abs(target-state.value),step),target-state.value);return state.value;}
 
@@ -27,7 +29,7 @@ public final class UiTheme {
   if(text.startsWith("☑ ")||text.startsWith("☐ ")){boolean checked=text.startsWith("☑ ");UiKit.checkbox(g,x+UiKit.INSET,y+(h-UiKit.CHECK_SIZE)/2,checked,b.active?UiKit.accent():UiKit.muted());g.drawString(font,UiKit.fit(font,text.substring(2),w-32),x+26,y+(h-8)/2,b.active?UiKit.text():UiKit.muted(),false);return;}
   boolean field=text.endsWith(" ▾");if(field){g.fill(x+w-22,y+1,x+w-1,y+h-1,UiPalette.color(0x40202C35));g.fill(x+w-23,y+4,x+w-22,y+h-4,UiPalette.color(0xFF536672));}
   if(b.active&&(color==UiPalette.color(0xFF8CBFA2)||color==UiPalette.color(0xFFDB7777)))g.fill(x+1,y+h-2,x+w-1,y+h-1,color);
-  if(text.equals("×")||text.equals("+")){UiIcons.draw(g,text.equals("×")?UiIcons.CLEAR:UiIcons.PLUS,x+(w-12)/2,y+(h-12)/2,b.active?UiPalette.color(0xFFE7EDF1):UiPalette.color(0xFF687580));return;}
+  if(text.equals("×")||text.equals("+")||text.equals("↑")||text.equals("↓")){UiIcons.draw(g,text.equals("×")?UiIcons.CLEAR:text.equals("↑")?UiIcons.UP:text.equals("↓")?UiIcons.DOWN:UiIcons.PLUS,x+(w-12)/2,y+(h-12)/2,b.active?UiPalette.color(0xFFE7EDF1):UiPalette.color(0xFF687580));return;}
   boolean dropdown=text.endsWith(" ▾");if(dropdown)text=text.substring(0,text.length()-2);if(text.startsWith("+ "))text=text.substring(2);
   String symbol=dropdown?"":icon(raw);int trailing=dropdown?18:0;if(font.width(text)+30+trailing>w)symbol="";int reserve=symbol.isEmpty()?0:18;
   String shown=font.width(text)>w-12-reserve-trailing?font.plainSubstrByWidth(text,Math.max(1,w-12-reserve-trailing-font.width("…")))+"…":text;

@@ -334,8 +334,8 @@ final class CommunityScreen extends ScrollScreen {
     @Override protected void onScrollEnd(){nextPage();}
     @Override public boolean mouseScrolled(double x,double y,double dx,double dy){
         if(home()&&sideProfile()&&data.has("groups")&&x>=width-232&&y>=groupTop()&&y<groupTop()+groupRows()*76){int max=Math.max(0,data.getAsJsonArray("groups").size()-groupRows());groupScroll=Math.max(0,Math.min(max,groupScroll+(dy<0?1:dy>0?-1:0)));refreshUi();return true;}
-        if(x<left()){navOffset=Math.max(0,navOffset+(dy<0?1:-1));refreshUi();return true;}
-        if(splitLayout()&&x>=detailLeft()){scrollDetail(-dy*3);return true;}
+        if(dy!=0&&x>=0&&x<left()&&y>=42&&y<height-64){navOffset=Math.max(0,navOffset+(dy<0?1:-1));refreshUi();return true;}
+        if(splitLayout()&&x>=detailLeft()&&y>=104&&y<height-64){scrollDetail(-dy*3);return true;}
         return super.mouseScrolled(x,y,dx,dy);
     }
     @Override public boolean mouseClicked(double x,double y,int button){var child=selected();if(splitLayout()&&child!=null&&button==0&&x>=width-24&&x<=width-16&&y>=child.bodyTop()&&y<height-82){detailDragging=true;seekDetail(y);return true;}return super.mouseClicked(x,y,button);}

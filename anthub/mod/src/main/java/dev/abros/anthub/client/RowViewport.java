@@ -8,7 +8,7 @@ final class RowViewport {
  void reset(){position=0;}
  void reveal(int index){if(index<first())move(index);else if(index>=first()+visible)move(index-visible+1);}
  private void move(double value){position=Math.max(0,Math.min(value,Math.max(0,count-visible)));}
- boolean scroll(double y,double dy){if(y<top||y>=bottom)return false;move(position-dy*3);return true;}
+ boolean scroll(double y,double dy){if(dy==0||count<=visible||y<top||y>=bottom)return false;move(position-dy*3);return true;}
  private int thumb(){return UiScrollbar.thumb(top,bottom,visible,count);}
  private void seek(double y){move((y-top-thumb()/2.0)/Math.max(1,bottom-top-thumb())*Math.max(0,count-visible));}
  boolean click(double x,double y,int button){if(button!=0||count<=visible||x<right||x>=right+7||y<top||y>=bottom)return false;dragging=true;seek(y);return true;}

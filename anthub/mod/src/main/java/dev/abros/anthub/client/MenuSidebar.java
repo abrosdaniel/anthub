@@ -16,5 +16,5 @@ final class MenuSidebar {
  void build(String current,Consumer<Button> add){var keys=sections();int shown=Math.max(1,(host.height-112)/24);offset=Math.max(0,Math.min(offset,Math.max(0,keys.size()-shown)));for(int i=offset;i<Math.min(keys.size(),offset+shown);i++){String key=keys.get(i);String label=Minecraft.getInstance().font.plainSubstrByWidth(CommunityScreen.name(key),left()-28);var button=new SidebarButton(8,42+(i-offset)*24,left()-20,label,current.equals(key),()->navigate(key));configure(button,key);add.accept(button);}if(!ServerMenuClient.state.has("features")||ServerMenuClient.state.getAsJsonArray("features").contains(new JsonPrimitive("notifications")))add.accept(Button.builder(Component.literal(host.width<420?"●":"Уведомления"),b->Minecraft.getInstance().setScreen(new NotificationPopup(host))).bounds(Math.max(left(),host.width-(host.width<420?88:150)),12,host.width<420?68:130,20).build());}
  private void navigate(String key){UiNavigation.open(host,key);}
 
- boolean scroll(double x,double dy){if(x>=left())return false;offset=Math.max(0,offset+(dy<0?1:-1));return true;}
+ boolean scroll(double x,double dy){if(x<0||x>=left()||dy==0)return false;offset=Math.max(0,offset+(dy<0?1:-1));return true;}
 }

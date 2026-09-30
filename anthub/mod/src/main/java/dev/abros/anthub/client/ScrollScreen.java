@@ -18,7 +18,7 @@ abstract class ScrollScreen extends Screen {
  protected void restoreScroll(int row){position=Math.max(0,row);firstRow=(int)position;}
  protected void resetScroll(){position=0;firstRow=0;}
  protected void rowsChanged(){rebuildWidgets();}
- @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(x>=scrollLeft()&&x<=right+7&&y>=top&&y<bottom){move(position-dy*3);return true;}return super.mouseScrolled(x,y,dx,dy);}
+ @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(super.mouseScrolled(x,y,dx,dy))return true;if(dy!=0&&x>=scrollLeft()&&x<=right+7&&y>=top&&y<bottom){move(position-dy*3);return true;}return false;}
  private int scrollLeft(){return children().stream().filter(c->c instanceof net.minecraft.client.gui.components.AbstractWidget w&&w.getY()>=top&&w.getY()<bottom).mapToInt(c->((net.minecraft.client.gui.components.AbstractWidget)c).getX()).min().orElse(right);}
  private int thumb(){return UiScrollbar.thumb(top,bottom,visibleRows,count);}
  private void seek(double y){move((y-top-thumb()/2.0)/Math.max(1,bottom-top-thumb())*Math.max(0,count-visibleRows));}

@@ -4,12 +4,13 @@ import net.minecraft.client.gui.GuiGraphics;
 /** Original AntHub glyphs on a shared 12-pixel grid; no external textures. */
 final class UiIcons {
  private UiIcons(){}
- static final String SEARCH="search",REFRESH="refresh",SAVE="save",CHECK="check",DELETE="delete",PLUS="plus",DOWN="down",RIGHT="right",CLEAR="clear";
+ static final String SEARCH="search",REFRESH="refresh",SAVE="save",CHECK="check",DELETE="delete",PLUS="plus",DOWN="down",UP="up",RIGHT="right",CLEAR="clear";
  private static final Map<String,int[][]> LINES=Map.of(
   PLUS,new int[][]{{5,2,5,9},{2,5,9,5}},
   CHECK,new int[][]{{2,6,4,8},{4,8,10,2}},
   CLEAR,new int[][]{{2,2,9,9},{9,2,2,9}},
   DOWN,new int[][]{{2,4,5,7},{5,7,8,4}},
+  UP,new int[][]{{2,7,5,4},{5,4,8,7}},
   RIGHT,new int[][]{{4,2,8,6},{8,6,4,10}},
   DELETE,new int[][]{{2,3,9,3},{4,1,7,1},{3,4,3,10},{8,4,8,10},{3,10,8,10},{5,5,5,8},{6,5,6,8}},
   SEARCH,new int[][]{{3,1,6,1},{1,3,1,6},{3,8,6,8},{8,3,8,6},{2,2,2,2},{7,2,7,2},{2,7,2,7},{7,7,10,10}},
