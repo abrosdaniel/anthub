@@ -21,4 +21,22 @@ import static org.junit.jupiter.api.Assertions.*;
   var query=input("workList");query.addProperty("query","GLASS");query.addProperty("status","working");var rows=store.request(owner,query).getAsJsonArray("tasks");assertEquals(1,rows.size());var result=rows.get(0).getAsJsonObject();assertEquals(Json.str(second,"id"),Json.str(result,"id"));assertEquals(1,result.get("stagesDone").getAsInt());assertEquals(1,result.get("stagesTotal").getAsInt());assertFalse(result.has("comments"));assertFalse(result.has("stocks"));assertEquals(0,store.request(other,query).getAsJsonArray("tasks").size());query.addProperty("query",Json.str(second,"code"));assertEquals(1,store.request(owner,query).getAsJsonArray("tasks").size());query.addProperty("status","done");assertTrue(store.request(owner,query).getAsJsonArray("tasks").isEmpty());query.addProperty("status","invalid");assertThrows(IllegalArgumentException.class,()->store.request(owner,query));
  }
 
+ @Test void dependenciesBlockStartAndRejectCyclesAndForeignTasks()throws Exception{
+  var first=create();var second=create();var q=command(second,"workDependencies");q.addProperty("codes",Json.str(first,"code"));second=store.request(owner,q).getAsJsonObject("task");
+  var start=command(second,"workStatus");start.addProperty("status","working");assertThrows(IllegalArgumentException.class,()->store.request(owner,start));
+  var cycle=command(first,"workDependencies");cycle.addProperty("codes",Json.str(second,"code"));assertThrows(IllegalArgumentException.class,()->store.request(owner,cycle));
+  var finish=command(first,"workStatus");finish.addProperty("status","done");store.request(owner,finish);assertEquals("working",Json.str(store.request(owner,start).getAsJsonObject("task"),"status"));
+  var foreign=input("workSave");foreign.addProperty("title","Private");foreign.addProperty("description","");var hidden=store.request(other,foreign).getAsJsonObject("task");var link=command(create(),"workDependencies");link.addProperty("codes",Json.str(hidden,"code"));assertThrows(IllegalArgumentException.class,()->store.request(owner,link));
+ }
+ @Test void reservationsUseConfirmedStockOnceAndReleaseOnResourceChange()throws Exception{
+  var first=create();var second=create();var tasks=new CommunityTasks(db,store);var stock=Json.parse("{\"inventory\":\"chest\",\"at\":1,\"items\":{\"minecraft:stone\":10}}");tasks.bind(owner,"Owner",Json.str(first,"code"),"stock",stock);
+  var res=JsonParser.parseString("[{\"item\":\"minecraft:stone\",\"amount\":7}]").getAsJsonArray();var a=command(first,"workResources");a.add("resources",res);first=store.request(owner,a).getAsJsonObject("task");var b=command(second,"workResources");b.add("resources",res);second=store.request(owner,b).getAsJsonObject("task");
+  first=store.request(owner,command(first,"workReserve")).getAsJsonObject("task");assertEquals(7,first.getAsJsonObject("reservations").get("minecraft:stone").getAsInt());var reserve=command(second,"workReserve");assertThrows(IllegalArgumentException.class,()->store.request(owner,reserve));
+  var clear=command(first,"workResources");clear.add("resources",new JsonArray());store.request(owner,clear);assertEquals(7,store.request(owner,reserve).getAsJsonObject("task").getAsJsonObject("reservations").get("minecraft:stone").getAsInt());
+ }
+ @Test void repeatCreatesOneCatchUpInstanceAndHistoryIsBounded()throws Exception{
+  var task=create();var repeat=command(task,"workRepeat");repeat.addProperty("days",1);task=store.request(owner,repeat).getAsJsonObject("task");long at=task.get("nextRepeatAt").getAsLong();var workflow=new CommunityTasks(db,store);db.communityTransaction(()->{workflow.repeatDue(at);workflow.repeatDue(at);return null;});assertEquals(2,store.request(owner,input("workList")).getAsJsonArray("tasks").size());
+  var history=new JsonObject();for(int i=0;i<70;i++)TaskWorkflow.history(history,owner,"workStatus");assertEquals(60,history.getAsJsonArray("history").size());assertEquals("Owner",Json.str(history.getAsJsonArray("history").get(0).getAsJsonObject(),"author"));
+ }
+
 }

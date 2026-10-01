@@ -43,13 +43,13 @@ public final class RegistryScreen extends ScrollScreen {
   for(int i=firstRow;i<Math.min(repositories.size(),firstRow+visibleRows);i++){
    var repo=repositories.get(i);var found=projects.get(repo);int y=38+(i-firstRow)*54;
    g.fill(x,y,x+w,y+48,UiPalette.color(0xDC1B252E));
-   g.drawString(font,font.plainSubstrByWidth(found==null?Client.hub.projectLabel(repo):found.manifest().name(),w-110),x+8,y+8,UiPalette.color(0xE2BE75));
-   g.drawString(font,font.plainSubstrByWidth(repo.replace("https://github.com/",""),w-110),x+8,y+23,UiPalette.color(0xA9B9C8));
+   Ui.text(g,font,font.plainSubstrByWidth(found==null?Client.hub.projectLabel(repo):found.manifest().name(),w-110),x+8,y+8,UiPalette.color(0xE2BE75));
+   Ui.text(g,font,font.plainSubstrByWidth(repo.replace("https://github.com/",""),w-110),x+8,y+23,UiPalette.color(0xA9B9C8));
    String detail=errors.getOrDefault(repo,found==null?"Загрузка…":found.manifest().version());
-   g.drawString(font,font.plainSubstrByWidth(detail,w-110),x+8,y+35,errors.containsKey(repo)?UiPalette.color(0xFF8888):UiPalette.color(0x879BAD));
+   Ui.text(g,font,font.plainSubstrByWidth(detail,w-110),x+8,y+35,errors.containsKey(repo)?UiPalette.color(0xFF8888):UiPalette.color(0x879BAD));
   }
  }
- @Override public void render(GuiGraphics g,int mx,int my,float pt){super.render(g,mx,my,pt);UiHeading.page(g,font,title,width);Ui.status(g,font,status,10,height-60,width-20,height-34);if(repositories.isEmpty())g.drawCenteredString(font,Client.tr("registry.empty"),width/2,50,UiPalette.color(0xBBBBBB));}
+ @Override public void render(GuiGraphics g,int mx,int my,float pt){super.render(g,mx,my,pt);UiHeading.page(g,font,title,width);Ui.status(g,font,status,10,height-60,width-20,height-34);if(repositories.isEmpty())Ui.centered(g,font,Client.tr("registry.empty"),width/2,50,UiPalette.color(0xBBBBBB));}
  @Override public void removed(){generation++;for(var future:requests.values())future.cancel(true);requests.clear();}
  @Override public void onClose(){minecraft.setScreen(parent);}
 }

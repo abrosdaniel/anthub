@@ -19,7 +19,7 @@ public final class Client {
     private static boolean initialized;
     static CoreUpdater.Update offeredUpdate;
     public static Component tr(String key,Object...args){return Component.translatable("anthub."+key,args);}
-    public static void install(net.neoforged.bus.api.IEventBus bus){ServerMenuClient.install(bus);loadedJar=System.getProperty("anthub.bundlePath")==null?ModList.get().getModFileById("anthub").getFile().getFilePath():java.nio.file.Path.of(System.getProperty("anthub.bundlePath"));NeoForge.EVENT_BUS.addListener(Client::screen);NeoForge.EVENT_BUS.addListener(Client::renderVersion);Protocol.clientState=()->{
+    public static void install(net.neoforged.bus.api.IEventBus bus){ServerMenuClient.install(bus);loadedJar=System.getProperty("anthub.bundlePath")==null?ModList.get().getModFileById("anthub").getFile().getFilePath():java.nio.file.Path.of(System.getProperty("anthub.bundlePath"));NeoForge.EVENT_BUS.addListener(Client::screen);NeoForge.EVENT_BUS.addListener(UiNavigation::opening);NeoForge.EVENT_BUS.addListener(UiNavigation::key);NeoForge.EVENT_BUS.addListener(Client::renderVersion);Protocol.clientState=()->{
         var j=new com.google.gson.JsonObject();j.addProperty("coreVersion",AntHub.VERSION);j.addProperty("packVersion",hub==null||hub.active()==null?"":hub.active().version());j.addProperty("lockSha256",hub==null?"":hub.activeHash());j.addProperty("repository",hub==null||hub.active()==null?"":hub.active().repository());try{j.addProperty("requiredFilesDigest",hub==null||hub.active()==null?"":PackProof.digest(hub.active(),hub.game));}catch(Exception ex){j.addProperty("requiredFilesDigest","invalid");}return j;
     };}
     private static void screen(ScreenEvent.Init.Post e){

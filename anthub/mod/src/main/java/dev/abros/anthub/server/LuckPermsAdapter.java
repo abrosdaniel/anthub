@@ -19,4 +19,19 @@ public final class LuckPermsAdapter {
         }catch(ReflectiveOperationException|LinkageError|RuntimeException ignored){result.remove("available");for(String key:capabilities.keySet())capabilities.addProperty(key,false); /* Partial API failure must never grant rights or remove vote protection. */ }
         return result;
     }
+    public static com.google.gson.JsonArray roles(){
+        var rows=new com.google.gson.JsonArray();
+        try{
+            Object api=Class.forName("net.luckperms.api.LuckPermsProvider").getMethod("get").invoke(null);
+            Object manager=Class.forName("net.luckperms.api.LuckPerms").getMethod("getGroupManager").invoke(api);
+            var groups=(java.util.Set<?>)Class.forName("net.luckperms.api.model.group.GroupManager").getMethod("getLoadedGroups").invoke(manager);
+            var type=Class.forName("net.luckperms.api.model.group.Group");var cachedType=Class.forName("net.luckperms.api.cacheddata.CachedDataManager");var permissionType=Class.forName("net.luckperms.api.cacheddata.CachedPermissionData");
+            var sorted=new java.util.TreeMap<String,Object>();for(var group:groups)sorted.put(String.valueOf(type.getMethod("getName").invoke(group)),group);
+            for(var entry:sorted.entrySet()){if(rows.size()>=40)break;var row=new JsonObject();row.addProperty("name",entry.getKey());var caps=new JsonObject();var cached=type.getMethod("getCachedData").invoke(entry.getValue());var permission=cachedType.getMethod("getPermissionData").invoke(cached);
+                for(String key:new String[]{"anthub.admin","anthub.events","anthub.auth.reset","anthub.vote.protected","anthub.stats.edit","anthub.stats.view","anthub.announce","anthub.maintenance","anthub.restart","anthub.reports","anthub.diagnostics"})caps.addProperty(key,permissionType.getMethod("checkPermission",String.class).invoke(permission,key).toString().equals("TRUE"));if(caps.get("anthub.admin").getAsBoolean())for(String right:ServerCommands.RIGHTS)caps.addProperty(right,true);row.add("capabilities",caps);rows.add(row);
+            }
+        }catch(ReflectiveOperationException|LinkageError|RuntimeException unavailable){return new com.google.gson.JsonArray();}
+        return rows;
+    }
+
 }

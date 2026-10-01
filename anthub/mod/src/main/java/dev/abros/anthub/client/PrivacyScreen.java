@@ -15,7 +15,7 @@ final class PrivacyScreen extends Screen implements CommunityScreen.Receiver {
  public void receiveCommunity(JsonObject j){if(!session.receive(j))return;busy=false;notice=j.has("error")?Json.opt(j,"text","Не удалось сохранить"):"Сохранено";if(j.has("settings")){mode=Json.opt(j.getAsJsonObject("settings"),"mode","public");statistics=j.getAsJsonObject("settings").get("statistics").getAsBoolean();}rebuildWidgets();}
  @Override public void tick(){if(session.timeout(System.currentTimeMillis())){busy=false;notice="Нет ответа. Повторите сохранение.";rebuildWidgets();}}
  @Override public void renderBackground(GuiGraphics g,int mx,int my,float d){super.renderBackground(g,mx,my,d);DialogPanel.draw(g,width,w(),top(),bottom());}
- @Override public void render(GuiGraphics g,int mx,int my,float d){super.render(g,mx,my,d);UiHeading.dialog(g,font,title,x(),top(),w());g.drawString(font,notice,x(),bottom()-78,UiPalette.color(0xBAC7D2));}
+ @Override public void render(GuiGraphics g,int mx,int my,float d){super.render(g,mx,my,d);UiHeading.dialog(g,font,title,x(),top(),w());Ui.text(g,font,notice,x(),bottom()-78,UiPalette.color(0xBAC7D2));}
  @Override public void onClose(){if(!busy){session.cancel();minecraft.setScreen(parent);}}
  @Override public boolean isPauseScreen(){return false;}
 }

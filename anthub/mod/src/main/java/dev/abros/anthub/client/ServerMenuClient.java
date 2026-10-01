@@ -19,7 +19,7 @@ public final class ServerMenuClient {
     private static String requiredBranch="";
     static java.util.function.Consumer<JsonObject> previewTransport;
     static String result="";
-    private static final KeyMapping SKINS=new KeyMapping("key.anthub.quickSkins",GLFW.GLFW_KEY_F7,"key.categories.anthub");
+    private static final KeyMapping SKINS=new KeyMapping("key.anthub.quickSkins",GLFW.GLFW_KEY_UNKNOWN,"key.categories.anthub");
     private static final KeyMapping OPEN=new KeyMapping("key.anthub.menu",GLFW.GLFW_KEY_F8,"key.categories.anthub");
     static JsonObject offer;
     static ServerData offerServer,lastServer;
@@ -87,6 +87,7 @@ public final class ServerMenuClient {
         if(kind.equals("openCommunity")){mc.setScreen(new CommunityScreen(mc.screen,Json.str(j,"section"),Json.str(j,"id")));return;}
         if(kind.equals("changed")){if(mc.screen instanceof CommunityScreen screen)screen.invalidate(Json.opt(j,"section",""),Json.opt(j,"id",""));else if(mc.screen instanceof FeatureListScreen screen)screen.invalidate();else if(mc.screen instanceof NotificationPopup screen)screen.invalidate();else if(mc.screen instanceof TaskScreen tasks)tasks.invalidate(Json.opt(j,"section",""),Json.opt(j,"id",""));else if(mc.screen instanceof ChoicePopup popup)popup.invalidate();return;}
         if(kind.equals("community")){if(mc.screen instanceof CommunityScreen screen)screen.receive(j);else if(mc.screen instanceof CommunityScreen.Receiver receiver)receiver.receiveCommunity(j);return;}
+        if(kind.equals("reports")&&mc.screen instanceof ReportQueueScreen queue){queue.receiveCommunity(j);return;}
         if(java.util.Set.of("reports","myReports","players","history","menuData").contains(kind)){if(mc.screen instanceof FeatureListScreen list&&(list.kind.equals(kind)||kind.equals("menuData")&&list.kind.equals("links")))list.receive(j);return;}
         if(kind.equals("state")){String previousPermissions=permissions(state);long previousSequence=state.has("popupSequence")?state.get("popupSequence").getAsLong():0;int previousUnread=state.has("unread")?state.get("unread").getAsInt():0;state=j;long sequence=j.has("popupSequence")?j.get("popupSequence").getAsLong():0;if(mc.screen instanceof NotificationPopup popup&&(sequence!=previousSequence||j.get("unread").getAsInt()!=previousUnread))popup.invalidate();if(sequence>lastPopup){lastPopup=sequence;if(notices){NoticeToast.show(Client.tr("server.notice"),Component.literal("Новые уведомления: "+j.get("unread").getAsInt()));if(sound&&mc.player!=null)mc.player.playSound(net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP,0.3f,1);}}if(!previousPermissions.equals(permissions(state))){UiNavigation.clear();if(mc.screen instanceof ServerMenuScreen menu)menu.refreshPermissions();else if(mc.screen instanceof CommunityScreen menu)menu.refreshPermissions();}if(j.has("profile"))Protocol.profile=j.getAsJsonObject("profile");if(j.get("open").getAsBoolean())mc.setScreen(new CommunityScreen(null,"home",""));}
         else if(kind.equals("notice")){if(!j.has("optional")||!j.get("optional").getAsBoolean()||notices){NoticeToast.show(Client.tr("server.notice"),Component.literal(Json.str(j,"text")));if(sound&&mc.player!=null)mc.player.playSound(net.minecraft.sounds.SoundEvents.EXPERIENCE_ORB_PICKUP,0.3f,1);}}

@@ -19,7 +19,7 @@ final class ContentPane {
  boolean drag(double my){if(!dragging)return false;seek(my);return true;}void release(){dragging=false;}
  Style link(Font font,double mx,double my){if(!contains(mx,my)||mx<x+6||mx>=x+width-12||my<y+6)return null;int row=(int)offset+(int)(my-y-6)/12;return row>=0&&row<lines.size()?font.getSplitter().componentStyleAtWidth(lines.get(row),(int)mx-x-6):null;}
  void render(GuiGraphics g,Font font){if(wrappedWidth!=width){lines=new ArrayList<>();for(var paragraph:Markdown.parse(text)){if(paragraph.getString().isEmpty())lines.add(FormattedCharSequence.EMPTY);else lines.addAll(font.split(paragraph,Math.max(20,width-20)));}wrappedWidth=width;move(offset);}
-  g.fill(x,y,x+width,y+height,UiPalette.color(0xA0181818));g.enableScissor(x+4,y+4,x+width-10,y+height-4);for(int i=(int)offset;i<Math.min(lines.size(),(int)offset+rows());i++)g.drawString(font,lines.get(i),x+6,y+6+(i-(int)offset)*12,UiPalette.color(0xEEEEEE));g.disableScissor();
+  g.fill(x,y,x+width,y+height,UiPalette.color(0xA0181818));g.enableScissor(x+4,y+4,x+width-10,y+height-4);for(int i=(int)offset;i<Math.min(lines.size(),(int)offset+rows());i++)Ui.text(g,font,lines.get(i),x+6,y+6+(i-(int)offset)*12,UiPalette.color(0xEEEEEE));g.disableScissor();
   UiScrollbar.draw(g,x+width-8,y+4,y+height-4,rows(),lines.size(),offset);
  }
 }

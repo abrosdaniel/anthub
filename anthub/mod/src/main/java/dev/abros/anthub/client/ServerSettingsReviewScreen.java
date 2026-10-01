@@ -15,7 +15,7 @@ final class ServerSettingsReviewScreen extends ScrollScreen implements Community
  public void receiveCommunity(JsonObject j){if(!session.receive(j))return;busy=false;notice=j.has("error")?Json.opt(j,"text","Не удалось проверить"):j.has("applied")?"Меню и разделы обновлены":"";if(j.has("changes"))data=j;rebuildWidgets();}
  @Override public void tick(){if(!ServerMenuClient.admin())onClose();if(session.timeout(System.currentTimeMillis())){busy=false;notice="Нет ответа. Проверьте файл заново.";rebuildWidgets();}}
  @Override public void renderBackground(GuiGraphics g,int mx,int my,float d){super.renderBackground(g,mx,my,d);DialogPanel.draw(g,width,w(),top(),bottom());}
- @Override public void render(GuiGraphics g,int mx,int my,float d){super.render(g,mx,my,d);UiHeading.dialog(g,font,title,x(),top(),w());for(int i=firstRow;i<Math.min(lines.size(),firstRow+visibleRows);i++)g.drawString(font,lines.get(i),x()+4,top()+36+(i-firstRow)*14,UiPalette.color(0xD7E2EC));Ui.status(g,font,notice,x(),bottom()-103,w(),bottom()-80);}
+ @Override public void render(GuiGraphics g,int mx,int my,float d){super.render(g,mx,my,d);UiHeading.dialog(g,font,title,x(),top(),w());for(int i=firstRow;i<Math.min(lines.size(),firstRow+visibleRows);i++)Ui.text(g,font,lines.get(i),x()+4,top()+36+(i-firstRow)*14,UiPalette.color(0xD7E2EC));Ui.status(g,font,notice,x(),bottom()-103,w(),bottom()-80);}
  @Override public void onClose(){session.cancel();minecraft.setScreen(parent);}
  @Override public boolean isPauseScreen(){return false;}
 }

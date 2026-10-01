@@ -23,7 +23,7 @@ final class PlayerAdministrationScreen extends ScrollScreen implements Community
  @Override public void receiveCommunity(JsonObject response){if(request.equals(Json.opt(response,"request",""))){busy=false;status=Json.opt(response,"text","Не удалось загрузить данные");}}
  @Override protected void onScrollEnd(){if(!cursor.isEmpty())load();}
  @Override public void tick(){if(!ServerMenuClient.admin())onClose();else if(busy&&System.currentTimeMillis()-sent>15000){busy=false;status="Нет ответа. Закройте и откройте карточку повторно.";}}
- @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-(Math.min(520,width-32)))/2,panelTop(),Math.min(520,width-32));int left=(width-Math.min(520,width-32))/2;for(int i=firstRow;i<Math.min(lines.size(),firstRow+visibleRows);i++)g.drawString(font,lines.get(i),left,panelTop()+38+(i-firstRow)*14,UiPalette.color(0xEEEEEE));Ui.status(g,font,status,left,panelBottom()-52,Math.min(520,width-32),panelBottom()-30);}
+ @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-(Math.min(520,width-32)))/2,panelTop(),Math.min(520,width-32));int left=(width-Math.min(520,width-32))/2;for(int i=firstRow;i<Math.min(lines.size(),firstRow+visibleRows);i++)Ui.text(g,font,lines.get(i),left,panelTop()+38+(i-firstRow)*14,UiPalette.color(0xEEEEEE));Ui.status(g,font,status,left,panelBottom()-52,Math.min(520,width-32),panelBottom()-30);}
  @Override public boolean isPauseScreen(){return false;}
  @Override public void onClose(){minecraft.setScreen(parent);}
 }

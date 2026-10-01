@@ -14,15 +14,15 @@ final class ProjectColumn extends AbstractWidget {
  @Override protected void renderWidget(GuiGraphics g,int mx,int my,float delta){buttons.clear();setTooltip(null);offset=Math.max(0,Math.min(offset,Math.max(0,servers.size()*ROW-height)));var font=Minecraft.getInstance().font;g.enableScissor(getX(),getY(),getX()+width,getY()+height);int y=getY()-(int)offset;
   for(var server:servers){if(y+ROW>=getY()&&y<getY()+height){boolean active=server.equals(selected.get());g.fill(getX(),y,getX()+width-6,y+ROW-4,active?UiPalette.color(0xD03B382A):UiPalette.color(0xB0202020));var data=status.get(server);
    if(isMouseOver(mx,my)&&my>=y&&my<y+17&&font.width(Client.hub.projectLabel(server))>width-26)setTooltip(Tooltip.create(Component.literal(Client.hub.projectLabel(server))));
-   g.drawString(font,font.plainSubstrByWidth(Client.hub.projectLabel(server),width-26),getX()+5,y+5,active?UiPalette.color(0xFFE2BE75):UiPalette.color(0xFFFFFFFF));
-   if(data!=null){Branding.serverIcon(data,g,getX()+5,y+19,24);int textX=getX()+34;int line=0;for(var part:font.split(data.motd==null?Component.literal(server):data.motd,Math.max(20,width-44))){if(line++>=2)break;g.drawString(font,part,textX,y+19+(line-1)*11,UiPalette.color(0xBBBBBB));}
-    String players=data.status==null?"…":data.status.getString();String ping=data.ping<0?"…":data.ping+" ms";g.drawString(font,font.plainSubstrByWidth(players+" · "+ping,width-14),getX()+5,y+46,UiPalette.color(0xBBBBBB));
-    g.drawString(font,font.plainSubstrByWidth(data.version==null?server:data.version.getString(),width-26),getX()+5,y+59,UiPalette.color(0x999999));
+   Ui.text(g,font,font.plainSubstrByWidth(Client.hub.projectLabel(server),width-26),getX()+5,y+5,active?UiPalette.color(0xFFE2BE75):UiPalette.color(0xFFFFFFFF));
+   if(data!=null){Branding.serverIcon(data,g,getX()+5,y+19,24);int textX=getX()+34;int line=0;for(var part:font.split(data.motd==null?Component.literal(server):data.motd,Math.max(20,width-44))){if(line++>=2)break;Ui.text(g,font,part,textX,y+19+(line-1)*11,UiPalette.color(0xBBBBBB));}
+    String players=data.status==null?"…":data.status.getString();String ping=data.ping<0?"…":data.ping+" ms";Ui.text(g,font,font.plainSubstrByWidth(players+" · "+ping,width-14),getX()+5,y+46,UiPalette.color(0xBBBBBB));
+    Ui.text(g,font,font.plainSubstrByWidth(data.version==null?server:data.version.getString(),width-26),getX()+5,y+59,UiPalette.color(0x999999));
    }
    int half=(width-18)/2;
    String[] labels={"connect","refresh","pack","remove"};java.util.List<Consumer<String>> actions=java.util.List.of(join,refresh,settings,remove);
    for(int i=0;i<4;i++){var action=actions.get(i);var button=Button.builder(Client.tr(labels[i]),b->action.accept(server)).bounds(getX()+4+(i%2)*(half+4),y+76+(i/2)*24,half,20).build();button.active=this.active;button.setFocused(isFocused() && keyboardIndex == servers.indexOf(server)*4+i);buttons.add(button);button.render(g,mx,my,delta);}
-   if(Client.hub.active()!=null&&Client.hub.active().repository().equals(server))g.drawString(font,"●",getX()+width-15,y+5,UiPalette.color(0xFF77CC77));
+   if(Client.hub.active()!=null&&Client.hub.active().repository().equals(server))Ui.text(g,font,"●",getX()+width-15,y+5,UiPalette.color(0xFF77CC77));
 
   }y+=ROW;}g.disableScissor();if(servers.size()*ROW>height){int thumb=Math.max(12,height*height/(servers.size()*ROW));int start=getY()+(int)((height-thumb)*offset/(servers.size()*ROW-height));g.fill(getX()+width-4,start,getX()+width,start+thumb,UiPalette.color(0xFF999999));}}
  @Override public boolean mouseClicked(double x,double y,int button){if(!active||!isMouseOver(x,y))return false;if(button==0&&x>=getX()+width-6&&servers.size()*ROW>height){dragging=true;return true;}for(var b:buttons)if(b.mouseClicked(x,y,button))return true;int index=(int)(y-getY()+offset)/ROW;if(index>=0&&index<servers.size())choose.accept(servers.get(index));return true;}

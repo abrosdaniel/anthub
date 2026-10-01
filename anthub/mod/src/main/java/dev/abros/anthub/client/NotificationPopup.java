@@ -122,8 +122,8 @@ final class NotificationPopup extends ScrollScreen implements CommunityScreen.Re
     @Override public void render(GuiGraphics g, int x, int y, float d) {
         ModalLayer.render(parent,this,g,d,()->{
             super.render(g,x,y,d);
-            UiHeading.dialog(g,font,title,left(),top(),panelWidth());
-            if(!status.isEmpty()||busy)g.drawString(font,font.plainSubstrByWidth(busy?"Обновление…":status,panelWidth()-24),left()+12,top()+25,AccessibilityScreen.foreground(UiPalette.color(0xBAC7D2)));
+            UiHeading.dialog(g,font,title,left()+12,top(),panelWidth()-24);
+            if(!status.isEmpty()||busy)Ui.text(g,font,font.plainSubstrByWidth(busy?"Обновление…":status,panelWidth()-24),left()+12,top()+25,AccessibilityScreen.foreground(UiPalette.color(0xBAC7D2)));
         });
     }
     @Override public void onClose() { if(parent instanceof CommunityScreen screen)screen.invalidate();else if(parent instanceof FeatureListScreen screen)screen.invalidate();minecraft.setScreen(parent); }

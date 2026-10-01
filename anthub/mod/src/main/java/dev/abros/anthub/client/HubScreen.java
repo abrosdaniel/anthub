@@ -17,7 +17,7 @@ public final class HubScreen extends ScrollScreen {
  public HubScreen(Screen parent){super(Client.tr("projects"));this.parent=parent;}
  public HubScreen(Screen parent,RepositoryClient.Release installed){this(parent);release=installed;initialRequested=true;}
  @Override protected void init(){String entered=url==null?"":url.getValue();leftWidth=Math.max(160,Math.min(270,width/3));rightX=leftWidth+20;rightWidth=width-rightX-10;paneWidth=Math.max(30,(rightWidth-10)/2);rulesX=rightX+paneWidth+10;
-  url=addRenderableWidget(new EditBox(font,10,32,width-90,20,Client.tr("repository")));url.setMaxLength(2048);url.setValue(entered);url.moveCursorToStart(false);url.setHint(Component.literal("https://github.com/owner/repo"));
+  url=addRenderableWidget(new UiEditBox(font,10,32,width-90,20,Client.tr("repository")));url.setMaxLength(2048);url.setValue(entered);url.moveCursorToStart(false);url.setHint(Component.literal("https://github.com/owner/repo"));
   addButton=addRenderableWidget(Button.builder(Client.tr("add.project"),b->fetch(url.getValue(),false,true)).bounds(width-74,32,64,20).build());
   List<String> saved=Client.hub==null?List.of():Client.hub.saved();double offset=projectColumn==null?0:projectColumn.offset;
   projectColumn=addRenderableWidget(new ProjectColumn(10,100,leftWidth,height-164,saved,serverStatuses,()->release==null?"":release.manifest().repository(),repo->select(repo,false),repo->select(repo,true),this::refreshProject,this::buildProject,this::remove));projectColumn.offset=offset;
@@ -65,7 +65,7 @@ public final class HubScreen extends ScrollScreen {
         Client.CONNECT.submit(()->{try{
             Client.hub.details.refreshIfStale(repository);var checked=Client.hub.repositories.fetchOrCached(repository);var manifest=checked.manifest();var server=Client.hub.selectedServer(manifest);
             String incompatible=Client.hub.incompatibility(manifest);
-            if(!incompatible.isEmpty())throw new IllegalStateException(Client.tr("requires",incompatible).getString());
+            if(!incompatible.isEmpty()){minecraft.execute(()->{if(request!=generation||minecraft.screen!=this)return;busy=false;status="";minecraft.setScreen(new CompatibilityScreen(this,manifest));});return;}
             if(server==null)throw new IllegalStateException(Client.tr("server.offline").getString());
             var address=net.minecraft.client.multiplayer.resolver.ServerNameResolver.DEFAULT.resolveAddress(ServerAddress.parseString(server.address()));
             if(address.isEmpty())throw new java.io.IOException(Client.tr("connect.unreachable").getString());
@@ -104,9 +104,9 @@ public final class HubScreen extends ScrollScreen {
  @Override public boolean mouseClicked(double x,double y,int button){if(button==0){if(newsPane.click(x,y)||rulesPane.click(x,y))return true;for(var pane:List.of(newsPane,rulesPane)){var style=pane.link(font,x,y);if(style!=null&&style.getClickEvent()!=null)return handleComponentClicked(style);}}return super.mouseClicked(x,y,button);}
  @Override public boolean mouseDragged(double x,double y,int button,double dx,double dy){if(button==0&&(newsPane.drag(y)||rulesPane.drag(y)))return true;return super.mouseDragged(x,y,button,dx,dy);}
  @Override public boolean mouseReleased(double x,double y,int button){newsPane.release();rulesPane.release();return super.mouseReleased(x,y,button);}
- @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);UiHeading.page(g,font,title,width);g.drawString(font,Client.tr("saved.projects"),10,86,UiPalette.color(0xBBBBBB));
-  if(release!=null){var manifest=release.manifest();g.drawString(font,font.plainSubstrByWidth(Client.hub.projectName(manifest)+" · "+manifest.version(),rightWidth),rightX,60,Branding.accent(manifest));String state=Client.tr(Client.hub.activeHash().equals(release.hash())?"project.active":Client.hub.active()!=null&&Client.hub.active().repository().equals(manifest.repository())?"update.available":"project.savedonly").getString();String incompatible=Client.hub.incompatibility(manifest);if(!incompatible.isEmpty())state=Client.tr("requires",incompatible).getString();var server=Client.hub.selectedServer(manifest);if(server!=null)state+=" · "+server.name();g.drawString(font,font.plainSubstrByWidth(state,rightWidth),rightX,72,UiPalette.color(0xBBBBBB));}
-  g.drawString(font,Client.tr("news"),rightX,84,UiPalette.color(0xE2BE75));g.drawString(font,Client.tr("rules"),rulesX,84,UiPalette.color(0xE2BE75));newsPane.render(g,font);rulesPane.render(g,font);
+ @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);UiHeading.page(g,font,title,width);Ui.text(g,font,Client.tr("saved.projects"),10,86,UiPalette.color(0xBBBBBB));
+  if(release!=null){var manifest=release.manifest();Ui.text(g,font,font.plainSubstrByWidth(Client.hub.projectName(manifest)+" · "+manifest.version(),rightWidth),rightX,60,Branding.accent(manifest));String state=Client.tr(Client.hub.activeHash().equals(release.hash())?"project.active":Client.hub.active()!=null&&Client.hub.active().repository().equals(manifest.repository())?"update.available":"project.savedonly").getString();String incompatible=Client.hub.incompatibility(manifest);if(!incompatible.isEmpty())state=Client.tr("requires",incompatible).getString();var server=Client.hub.selectedServer(manifest);if(server!=null)state+=" · "+server.name();Ui.text(g,font,font.plainSubstrByWidth(state,rightWidth),rightX,72,UiPalette.color(0xBBBBBB));}
+  Ui.text(g,font,Client.tr("news"),rightX,84,UiPalette.color(0xE2BE75));Ui.text(g,font,Client.tr("rules"),rulesX,84,UiPalette.color(0xE2BE75));newsPane.render(g,font);rulesPane.render(g,font);
   Ui.status(g,font,status,10,height-78,width-20,height-58);
  }
  @Override public void removed(){generation++;for(var read:reads)read.cancel(true);reads.clear();loading.clear();loadAttempted.clear();busy=false;pinger.removeAll();initialRequested=false;}
