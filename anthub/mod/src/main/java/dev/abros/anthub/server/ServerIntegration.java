@@ -40,7 +40,7 @@ public final class ServerIntegration {
             var root=net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().toAbsolutePath().normalize();
             var remote=new Remote();remote.cacheMetadata(root.resolve("anthub/cache/http"));
             policy=ServerProjectPolicy.load(new RepositoryClient(root,remote),ServerDatabase.settings().text("project.repository"),ServerDatabase.settings().flag("project.requireProjectPack"));
-            if(policy.release()!=null&&!Versions.supportsBranch(dev.abros.anthub.AntHub.VERSION,policy.requiredAntHubVersion())){
+            if(policy.release()!=null&&!Versions.supportsRequirement(dev.abros.anthub.AntHub.VERSION,policy.requiredAntHubVersion())){
                 com.mojang.logging.LogUtils.getLogger().error("AntHub: проект требует версию {}, на сервере установлена {}. Установите указанную версию AntHub или исправьте anthubVersion в проекте.",policy.requiredAntHubVersion(),dev.abros.anthub.AntHub.VERSION);
                 throw new IllegalStateException("Ветка AntHub сервера не совпадает с anthubVersion проекта");
             }

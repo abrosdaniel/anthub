@@ -17,7 +17,7 @@ final class CoreVersionsPopup extends ScrollScreen {
     private boolean started,loading,installing;
     private String status="";
     CoreVersionsPopup(Screen parent){this(parent,"");}
-    CoreVersionsPopup(Screen parent,String branch){super(Component.literal("Версия AntHub"));this.parent=parent;this.branch=branch;if(Client.offeredUpdate!=null&&!Client.offeredUpdate.version().equals(AntHub.VERSION)&&(branch.isEmpty()||dev.abros.anthub.core.Versions.supportsBranch(Client.offeredUpdate.version(),branch))){versions=List.of(Client.offeredUpdate);}}
+    CoreVersionsPopup(Screen parent,String branch){super(Component.literal("Версия AntHub"));this.parent=parent;this.branch=branch;if(Client.offeredUpdate!=null&&!Client.offeredUpdate.version().equals(AntHub.VERSION)&&(branch.isEmpty()||dev.abros.anthub.core.Versions.supportsRequirement(Client.offeredUpdate.version(),branch))){versions=List.of(Client.offeredUpdate);}}
     private int panelWidth(){return Math.min(340,width-16);}
     private int left(){return width-panelWidth()-8;}
     private int bottom(){return Math.min(height-8,270);}
@@ -37,7 +37,7 @@ final class CoreVersionsPopup extends ScrollScreen {
     private void load(){
         if(Client.hub==null){status=Client.error.isBlank()?"AntHub загружается…":"Ошибка запуска: "+Client.error;return;}
         loading=true;
-        Client.NETWORK.submit(()->{try{var updates=Client.hub.availableCoreUpdates().stream().filter(u->!u.version().equals(AntHub.VERSION)).filter(u->branch.isEmpty()||dev.abros.anthub.core.Versions.supportsBranch(u.version(),branch)).toList();minecraft.execute(()->{loading=false;versions=updates;if(selected==null||!updates.contains(selected))selected=null;status=updates.isEmpty()?"Других версий нет":"";if(minecraft.screen==this)rebuildWidgets();});}catch(Exception failure){minecraft.execute(()->{loading=false;status="Не удалось проверить версии. Попробуйте позже.";});}});
+        Client.NETWORK.submit(()->{try{var updates=Client.hub.availableCoreUpdates().stream().filter(u->!u.version().equals(AntHub.VERSION)).filter(u->branch.isEmpty()||dev.abros.anthub.core.Versions.supportsRequirement(u.version(),branch)).toList();minecraft.execute(()->{loading=false;versions=updates;if(selected==null||!updates.contains(selected))selected=null;status=updates.isEmpty()?"Других версий нет":"";if(minecraft.screen==this)rebuildWidgets();});}catch(Exception failure){minecraft.execute(()->{loading=false;status="Не удалось проверить версии. Попробуйте позже.";});}});
     }
     @Override public void tick(){super.tick();if(started&&!loading&&Client.hub!=null&&status.startsWith("AntHub загружается"))load();}
     private void install(){

@@ -35,8 +35,8 @@ public record ServerProjectPolicy(String repository, boolean required, Repositor
         try {
             if(!repository.equals(Repositories.normalize(Json.str(state,"repository")))||!hash.equals(Json.str(state,"lockSha256")))
                 return "AntHub: сервер требует сборку "+version()+". Откройте AntHub для обновления.";
-            if(state.get("protocolVersion").getAsInt()!=WireProtocols.version("pack")||!Versions.supportsBranch(Json.str(state,"coreVersion"),requiredAntHubVersion()))
-                return "Для этого проекта нужна ветка AntHub "+requiredAntHubVersion()+". Выберите версию на главной.";
+            if(state.get("protocolVersion").getAsInt()!=WireProtocols.version("pack")||!Versions.supportsRequirement(Json.str(state,"coreVersion"),requiredAntHubVersion()))
+                return "Требование проекта к версии AntHub: "+requiredAntHubVersion()+". Выберите версию на главной.";
             if(!digest.equals(Json.opt(state,"requiredFilesDigest","")))return "AntHub: REPAIR_REQUIRED";
             return "";
         } catch(RuntimeException malformed) { return "AntHub: invalid client pack response"; }

@@ -22,7 +22,7 @@ class ManifestTest {
         assertTrue(Versions.supportsBranch("1.0.0","1.x"));
         assertTrue(Versions.supportsBranch("1.99.88","1.x"));
         assertFalse(Versions.supportsBranch("2.0.0","1.x"));
-        for(String branch:List.of("1.0.0","1.*","01.x","1.x.x","1.X","")){
+        for(String branch:List.of("1","1.*","01.x","1.x.0","1.X","")){
             assertFalse(Versions.supportsBranch("1.0.0",branch));
             var json=fixture();json.getAsJsonObject("anthub").addProperty("version",branch);
             assertThrows(Exception.class,()->Manifest.parse(json));

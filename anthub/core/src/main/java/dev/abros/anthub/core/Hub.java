@@ -50,7 +50,7 @@ public final class Hub {
         return current==null?original:new Manifest.Server(original.id(),current.name(),current.address());
     }
 
-    public String incompatibility(Manifest m){if(!m.minecraft().equals("1.21.1"))return "Minecraft "+m.minecraft();if(!m.neoForge().equals(neoVersion))return "NeoForge "+m.neoForge();if(!Versions.supportsBranch(coreVersion,m.anthubVersion()))return "AntHub "+m.anthubVersion();return "";}
+    public String incompatibility(Manifest m){if(!m.minecraft().equals("1.21.1"))return "Minecraft "+m.minecraft();if(!m.neoForge().equals(neoVersion))return "NeoForge "+m.neoForge();if(!Versions.supportsRequirement(coreVersion,m.anthubVersion()))return "AntHub "+m.anthubVersion();return "";}
     private synchronized Map<String,Planner.Owned> owned()throws IOException{writableState();Map<String,Planner.Owned> result=state.has("ownership")?Json.GSON.fromJson(state.get("ownership"),new TypeToken<Map<String,Planner.Owned>>(){}.getType()):Map.of();
         if(result==null)throw new IOException("Invalid ownership");
         for(var entry:result.entrySet()){SafePaths.resolve(game,entry.getKey());var value=entry.getValue();if(value==null||value.hash()==null||!Set.of("enforce","preserve","update").contains(value.policy()))throw new IOException("Invalid ownership");Hashes.check(value.hash());}return result;}

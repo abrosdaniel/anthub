@@ -6,11 +6,18 @@ public final class Versions {
         String pattern="(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)";
         return installed.matches(pattern)&&required.matches(pattern)&&installed.split("\\.")[0].equals(required.split("\\.")[0]);
     }
-    /** Project requirements name a release line, not a concrete mod version. */
-    public static boolean supportsBranch(String installed,String branch){
-        return installed!=null&&branch!=null&&branch.matches("(0|[1-9][0-9]*)\\.x")
-            &&sameMajor(installed,branch.substring(0,branch.length()-2)+".0.0");
+    /** A.x.x accepts a compatible major; A.B.x and A.B.C set a minimum within it. */
+    public static boolean supportsRequirement(String installed,String requirement){
+        String number="(0|[1-9][0-9]*)";
+        if(installed==null||requirement==null||!installed.matches(number+"\\."+number+"\\."+number))return false;
+        // Keep the original A.x seed format readable.
+        if(requirement.matches(number+"\\.x(\\.x)?"))return sameMajor(installed,requirement.split("\\.")[0]+".0.0");
+        if(!requirement.matches(number+"\\."+number+"\\.(x|"+number+")"))return false;
+        String minimum=requirement.endsWith(".x")?requirement.substring(0,requirement.length()-1)+"0":requirement;
+        return sameMajor(installed,minimum)&&compare(installed,minimum)>=0;
     }
+    /** Retained for callers compiled against the earlier API. */
+    public static boolean supportsBranch(String installed,String requirement){return supportsRequirement(installed,requirement);}
     public static int compare(String a,String b){
         String[] aa=a.split("\\+",2)[0].split("-",2),bb=b.split("\\+",2)[0].split("-",2);
         String[] av=aa[0].split("\\."),bv=bb[0].split("\\.");if(av.length!=3||bv.length!=3)throw new IllegalArgumentException("SemVer required");

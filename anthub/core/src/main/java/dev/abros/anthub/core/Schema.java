@@ -26,7 +26,7 @@ public final class Schema {
    JsonArray a=v.getAsJsonArray();if(s.has("minItems")&&a.size()<s.get("minItems").getAsInt())fail(p,"too few items");if(s.has("maxItems")&&a.size()>s.get("maxItems").getAsInt())fail(p,"too many items");Set<JsonElement> seen=new HashSet<>();int i=0;for(var e:a){if(s.has("uniqueItems")&&s.get("uniqueItems").getAsBoolean()&&!seen.add(e))fail(p,"duplicate item");if(s.has("items"))check(s.getAsJsonObject("items"),e,p+"["+(i++)+"]");}
   }
   if(v.isJsonPrimitive()&&v.getAsJsonPrimitive().isString()){
-   String text=v.getAsString();int length=text.codePointCount(0,text.length());if(s.has("minLength")&&length<s.get("minLength").getAsInt())fail(p,"too short");if(s.has("maxLength")&&length>s.get("maxLength").getAsInt())fail(p,"too long");if(s.has("pattern")&&!java.util.regex.Pattern.compile(s.get("pattern").getAsString()).matcher(text).find())fail(p,"invalid format");
+   String text=v.getAsString();int length=text.codePointCount(0,text.length());if(s.has("minLength")&&length<s.get("minLength").getAsInt())fail(p,"too short");if(s.has("maxLength")&&length>s.get("maxLength").getAsInt())fail(p,"too long");if(s.has("pattern")&&!java.util.regex.Pattern.compile(s.get("pattern").getAsString()).matcher(text).find())fail(p,s.has("x-patternMessage")?s.get("x-patternMessage").getAsString():"invalid format");
   }
   if(v.isJsonPrimitive()&&v.getAsJsonPrimitive().isNumber()){
    var n=v.getAsBigDecimal();if(s.has("minimum")&&n.compareTo(s.get("minimum").getAsBigDecimal())<0)fail(p,"below minimum");if(s.has("maximum")&&n.compareTo(s.get("maximum").getAsBigDecimal())>0)fail(p,"above maximum");

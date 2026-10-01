@@ -4,6 +4,19 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'anthub/tooling/seed')
 spec=importlib.util.spec_from_file_location('anthub',Path(__file__).resolve().parents[3]/'anthub/tooling/seed/anthub.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 class Contracts(unittest.TestCase):
     def test_template(self):m.load_project(Path(__file__).resolve().parents[3]/'template')
+    def test_anthub_requirement_formats_survive_seed_conversion(self):
+        import tempfile,shutil
+        root=Path(__file__).resolve().parents[3]/'template'
+        with tempfile.TemporaryDirectory() as tmp:
+            target=Path(tmp)/'project';shutil.copytree(root,target)
+            source=m.read(target/'anthub.json')
+            for requirement in ['3.x','3.x.x','3.4.x','3.4.2']:
+                source['anthubVersion']=requirement;m.write(target/'anthub.json',source)
+                project,_,_=m.load_project(target)
+                self.assertEqual(requirement,project['anthub']['version'])
+            for requirement in ['3.4','3.x.2','03.x.x','3.04.x','^3.4.0']:
+                source['anthubVersion']=requirement;m.write(target/'anthub.json',source)
+                with self.assertRaises(Exception):m.load_project(target)
     def test_traversal(self):
         for path in ['../mods/a','mods/../a','mods/CON.jar','config/anthub-client.toml','mods/a\\b','saves/world']:
             with self.assertRaises(ValueError):m.pathcheck(path)
