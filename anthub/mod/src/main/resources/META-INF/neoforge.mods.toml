@@ -26,3 +26,6 @@ side="BOTH"
 
 [[mixins]]
 config="anthub.mixins.json"
+
+[[mixins]]
+config="anthub.compat.mixins.json"

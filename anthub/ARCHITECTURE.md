@@ -2,7 +2,7 @@
 
 AntHub uses native Minecraft rendering. No browser, HTML or CSS runtime is involved.
 The UI component library and application controllers are separate layers; the network protocol
-and compatibility major line remain unchanged for release 3.7.0.
+and compatibility major line remain unchanged for release 3.8.0.
 
 ## Dependency direction
 
@@ -16,12 +16,12 @@ and compatibility major line remain unchanged for release 3.7.0.
 
 ## Application state
 
-| Workspace | Controller | View responsibilities |
-| --- | --- | --- |
-| Personal/group tasks | `TaskWorkspace` | Tabs, layout, focus, local draft fields, dialogs |
-| Community sections and details | `CommunityWorkspace` | Section presenters, selection, scroll anchors, forms |
-| Players, reports, history and inbox | `PagedMenuController` + `PagedWindow` | Filters, selection and row composition |
-| Connection | `MenuTransport` | `ServerMenuClient` connects the queue to Minecraft packets |
+| Workspace                           | Controller                            | View responsibilities                                      |
+| ----------------------------------- | ------------------------------------- | ---------------------------------------------------------- |
+| Personal/group tasks                | `TaskWorkspace`                       | Tabs, layout, focus, local draft fields, dialogs           |
+| Community sections and details      | `CommunityWorkspace`                  | Section presenters, selection, scroll anchors, forms       |
+| Players, reports, history and inbox | `PagedMenuController` + `PagedWindow` | Filters, selection and row composition                     |
+| Connection                          | `MenuTransport`                       | `ServerMenuClient` connects the queue to Minecraft packets |
 
 Controllers receive an injected sender and clock and can be tested without the game. Each
 controller owns its in-flight session, correlation, timeout and pagination. View projections
@@ -118,3 +118,36 @@ flag (administration form or `/ah announce urgent <text>`). Client master disabl
 messages. Minecraft chat and vanilla toast rendering are unaffected.
 
 HUD mini-profile: `HudProfile` owns measurement and rendering from the existing state snapshot and skin cache. Prefix/suffix use the shared legacy text parser; profile fields are persisted globally in `HudSettings`. No extra player polling or new protocol is needed.
+
+## 3.8 domain additions
+
+- ResourceRequirements validates disjoint alternatives and allocates real item reserves. TaskArchive verifies the complete selected revision set before any mutation.
+- NoticeActions resolves the recipient-owned notification on the server and delegates to existing domain authorization. Client retries retain the same operation identity.
+- ScheduledAnnouncements persists publication and recipient notifications in one transaction. Its global scheduling lock serializes limits and delivery; retries cannot duplicate publication.
+- StockHolograms reads only accessible tasks from server-provided coordinates. Client rendering is depth-tested, dimension/range bounded and expires after 15 seconds. Disabling it skips the server lookup.
+- LatencyHistory stores at most 120 numeric samples without player/account data. Deferred notices and progress highlights have explicit capacity limits.
+- ChangeSummary uses an explicit field allowlist. Private account data and participant collections are never included in general edit diffs.
+- Native CI checks geometry and contrast and preserves PNGs for review. Cross-platform pixel equality is intentionally not asserted; screenshots alone are not a pixel-baseline comparison.
+
+## Optional compatibility adapters
+
+- `core/auth/ServerIdentities` is an indexed, read-only public identity directory: current
+  case-insensitive name → permanent server UUID; official UUIDs are separately verified aliases.
+  Renaming removes the old name index. No adapter changes account UUIDs or authentication proofs.
+- `server/compat/CompatibilityRegistry` is the explicit integration allowlist. Each
+  `CompatibilityAdapter` owns its version support, operations and native-mod authorization.
+  Add a new adapter at this registration point; keep its external bindings in `mod/compat`.
+- `CompatibilityClient` is a reusable connection-scoped request transport over the negotiated
+  `compatibility-adapters` capability. It works before opening the menu, bounds pending requests
+  and profile caches, times out missing replies, and clears caches on connection changes.
+- `AccessDeniedBindings` isolates optional reflective APIs. Optional client mixins have their
+  own configuration and discovery plugin; neither absent mods nor unsupported versions become
+  a hard dependency. Mojang services, vanilla packets and other mods' profile lookup APIs are
+  not intercepted by these adapters.
+- `core/compat/AccessRepairPlan` freezes before/after sets. The Access Denied adapter creates
+  owner-bound previews with a two-minute lifetime; applying rechecks native network ownership,
+  current permissions and verified account links. Unknown UUIDs remain untouched. Permissions
+  persist in Access Denied's existing NBT format; no extra UUID storage or account migration.
+- Compatibility fixtures live in a separate optional test mod (`compattests`); they are
+  excluded from production jars. Test installed NeoForge as well as compilation: Create's
+  local-variable-capture mixins cannot reliably run in the unrecompiled development runtime.

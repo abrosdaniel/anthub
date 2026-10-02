@@ -1,0 +1,3 @@
+package dev.abros.anthub.core;
+import org.junit.jupiter.api.Test;import static org.junit.jupiter.api.Assertions.*;
+class LatencyHistoryTest {@Test void boundedAndIndependent(){var h=new LatencyHistory();for(int n=0;n<500;n++)h.add(n*1000L,n,n/2);assertEquals(120,h.snapshot().size());h.snapshot().get(0).getAsJsonObject().addProperty("at",-1);assertEquals(380000,h.snapshot().get(0).getAsJsonObject().get("at").getAsLong());h.clear();assertTrue(h.snapshot().isEmpty());}@Test void rateLimited(){var h=new LatencyHistory();h.add(1000,1,1);h.add(1001,2,2);assertEquals(1,h.snapshot().size());assertThrows(IllegalArgumentException.class,()->h.add(2000,-1,1));}}

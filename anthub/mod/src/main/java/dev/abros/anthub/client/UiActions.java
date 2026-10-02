@@ -34,7 +34,7 @@ final class UiActions {
   if(tracks.length!=actions.length)throw new IllegalArgumentException("Action tracks must match actions");
   var boxes=NativeLayout.row(area,6,tracks);
   var widgets=new ArrayList<Button>();
-  for(int i=0;i<actions.length;i++){var a=actions[i];var b=boxes.get(i);var widget=Button.builder(a.label(),ignored->a.run().run()).bounds(b.x(),b.y(),b.width(),b.height()).build();style(widget,a.tone(),a.icon());widget.active=a.enabled();if(!a.enabled()&&!a.reason().isBlank())widget.setTooltip(Tooltip.create(Component.literal(a.reason())));add.accept(widget);widgets.add(widget);}
+  for(int i=0;i<actions.length;i++){var a=actions[i];var b=boxes.get(i);var widget=Button.builder(a.label(),ignored->a.run().run()).bounds(b.x(),b.y(),b.width(),Math.min(CONTROL_HEIGHT,b.height())).build();style(widget,a.tone(),a.icon());widget.active=a.enabled();if(!a.enabled()&&!a.reason().isBlank())widget.setTooltip(Tooltip.create(Component.literal(a.reason())));add.accept(widget);widgets.add(widget);}
   return List.copyOf(widgets);
  }
  static Button close(NativeLayout.Box area,Consumer<AbstractWidget> add,Runnable close){int w=Math.min(COMMAND_WIDTH,area.width());return command(Command.CLOSE,new NativeLayout.Box(area.right()-w,area.y(),w,CONTROL_HEIGHT),add,close);}

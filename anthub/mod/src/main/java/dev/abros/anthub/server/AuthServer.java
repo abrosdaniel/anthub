@@ -47,6 +47,9 @@ public final class AuthServer {
         var result=new com.mojang.authlib.GameProfile(identity.uuid(),identity.name());result.getProperties().putAll(original.getProperties());return result;
     }
     private static void remember(AuthStore.Account account){identities.remember(new AuthStore.Profile(account.name(),UUID.fromString(account.uuid()),account.official()==null?null:UUID.fromString(account.official())));}
+    public static Optional<AuthStore.Profile> knownIdentity(String name){var index=identities;return index==null?Optional.empty():index.known(name);}
+    public static Optional<AuthStore.Profile> knownIdentity(UUID id){var index=identities;return index==null?Optional.empty():index.known(id);}
+    public static Optional<AuthStore.Profile> verifiedAlias(UUID id){var index=identities;return index==null?Optional.empty():index.verifiedAlias(id);}
     public static boolean enabled(){return !mode.equals("false");}
     public static void install(IEventBus bus,ModContainer container){
         bus.addListener(AuthServer::tasks);AuthProtocol.server=AuthServer::receive;AuthProtocol.upgrade=AuthServer::upgrade;

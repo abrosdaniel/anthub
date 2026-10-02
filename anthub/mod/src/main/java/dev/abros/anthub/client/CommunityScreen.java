@@ -26,7 +26,6 @@ final class CommunityScreen extends ScrollScreen {
     int beginCard(){return rows.size();}
     void endCard(int start){rowCards.add(new int[]{start,rows.size()});text("");}
     private void renderRowCards(GuiGraphics g,int x,int top,int w,int bottom){g.enableScissor(x-4,top,x+w+4,bottom);for(var card:rowCards){int y=top+(card[0]-firstRow)*24,end=top+(card[1]-firstRow)*24;if(end<=top||y>=bottom)continue;g.fill(x-4,y-2,x+w+4,end,AccessibilityScreen.background(UiPalette.color(0xB02D3B46)));g.renderOutline(x-4,y-2,w+8,end-y+2,UiPalette.color(0xFF526674));}g.disableScissor();}
-    static void clearDrafts(){}
     private final dev.abros.anthub.core.CommunityWorkspace model;
     void invalidate(){if(inlineParent!=null)inlineParent.model.invalidate();model.invalidate();for(var child:expanded.values())child.invalidate();}
     void invalidate(String topic,String id){if(!home()&&!topic.isEmpty()&&!topic.equals(section))return;if(!id.isEmpty()&&!itemId.isEmpty()&&!itemId.equals(id)&&!topic.equals("home"))return;model.invalidate();for(var child:expanded.values())if(id.isEmpty()||child.itemId.equals(id))child.invalidate(topic,id);}
@@ -42,8 +41,8 @@ final class CommunityScreen extends ScrollScreen {
     Screen surface(){return inlineParent==null?this:inlineParent;}
     void refreshUi(){if(inlineParent!=null){inlineParent.refreshUi();return;}boolean typing=search!=null&&getFocused()==search;int cursor=typing?search.getCursorPosition():0;rebuildWidgets();if(typing&&search!=null){setFocused(search);search.setCursorPosition(cursor);}}
     private void prepareInline(CommunityScreen host){inlineParent=host;minecraft=host.minecraft;font=host.font;width=host.width;height=host.height;}
-    private record Anchor(String id,int offset){}
-    private Anchor anchor(){if(!data.has("entries"))return null;var entries=displayEntries();if(entries.isEmpty())return null;int n=Math.min(firstRow,entries.size()-1);return new Anchor(Json.str(entries.get(n).getAsJsonObject(),"id"),0);}
+    private record Anchor(String id){}
+    private Anchor anchor(){if(!data.has("entries"))return null;var entries=displayEntries();if(entries.isEmpty())return null;int n=Math.min(firstRow,entries.size()-1);return new Anchor(Json.str(entries.get(n).getAsJsonObject(),"id"));}
     private void restore(Anchor anchor){if(anchor==null||!data.has("entries"))return;int n=0;for(var entry:displayEntries()){if(Json.str(entry.getAsJsonObject(),"id").equals(anchor.id)){if(firstRow!=n){restoreScroll(n);refreshUi();}return;}n++;}}
     private UiListDetail masterDetail(){return UiListDetail.fit(new dev.abros.anthub.core.NativeLayout.Box(left(),bodyTop(),Math.min(880,navigation.right()-left()-20),Math.max(0,height-bodyTop()-82)),230,height>=300);}
     private boolean splitLayout(){return inlineParent==null&&itemId.isEmpty()&&!home()&&masterDetail().split();}
@@ -125,7 +124,6 @@ final class CommunityScreen extends ScrollScreen {
     private Button button(String label,UiActions.Tone tone,String icon,int x,int y,int w,Runnable callback){return addRenderableWidget(UiActions.button(Component.literal(label),tone,icon,b->callback.run()).bounds(x,y,w,20).build());}
     @Override protected void init(){controlsBusy=model.busy();
         if(data.has("detail")){rows.clear();detail(data.getAsJsonObject("detail"));}else if(data.has("entries")){rows.clear();list();}
-        int navWidth=navigationLeft()-20;
         notificationButton=null;
         navigation.build(section,control->{addRenderableWidget(control);if(control.getMessage().getString().equals(MenuSidebar.inboxLabel(width)))notificationButton=control;});
         UiPageFooter.workspace(width,height).end(UiActions.Command.BACK,this::addRenderableWidget,this::onClose);
@@ -262,7 +260,7 @@ final class CommunityScreen extends ScrollScreen {
         if(can(j,"edit"))secondary("Редактировать",()->edit(j));
         else if(Set.of("board","events","groups").contains(section)&&can(j,"location"))secondary("Место…",()->{var preset=new JsonObject();preset.add("location",j.has("location")?j.get("location"):JsonNull.INSTANCE);form("Место","location",List.of(),preset);});
         if(!owner(j))secondary("Пожаловаться",()->minecraft.setScreen(new ReportScreen(surface(),name(section)+": "+Json.str(j,"title")+" ["+itemId+"]\n")));
-        if(j.has("history"))secondary("История изменений",()->{var labels=new ArrayList<String>();for(var change:j.getAsJsonArray("history")){var h=change.getAsJsonObject();labels.add(local(h.get("at").getAsLong())+" · "+Json.str(h,"author")+" · "+operationLabel(Json.str(h,"operation")));}minecraft.setScreen(new ChoicePopup(surface(),"Последние изменения",labels,i->{}));});
+        if(j.has("history"))secondary("История изменений",()->{var labels=new ArrayList<String>();for(var change:j.getAsJsonArray("history")){var h=change.getAsJsonObject();labels.add(local(h.get("at").getAsLong())+" · "+Json.str(h,"author")+" · "+operationLabel(Json.str(h,"operation")));}minecraft.setScreen(new ChoicePopup(surface(),"Последние изменения",labels,i->{var h=j.getAsJsonArray("history").get(i).getAsJsonObject();if(h.has("changes"))minecraft.setScreen(ChangePreviewScreen.history(surface(),h.getAsJsonArray("changes")));}));});
         if(can(j,"delete"))secondaryDanger("Удалить…",()->confirm("Удалить? Восстановление доступно 30 дней.","delete",new JsonObject()));
         if(can(j,"hide"))secondary("Скрыть запись",()->form("Модерация","hide",List.of(new Field("text","Причина",500)),new JsonObject()));
     }
@@ -278,7 +276,7 @@ final class CommunityScreen extends ScrollScreen {
     private void create(){var fields=new ArrayList<Field>();fields.add(new Field("title","Название",100));fields.add(new Field("description","Описание",1500));var preset=new JsonObject();switch(section){
         case "board"->{fields.add(new Field("days","Срок (дней, 1–90)",2));preset.addProperty("days","14");var categories=data.getAsJsonObject("config").getAsJsonArray("categories");if(!categories.isEmpty()){var options=new JsonArray();var empty=new JsonObject();empty.addProperty("value","");empty.addProperty("label","Без категории");options.add(empty);options.addAll(categories);fields.add(new Field("category","Категория",40,options));}}
         case "groups"->fields.add(new Field("type","Тип",40,data.getAsJsonObject("config").getAsJsonArray("groupTypes")));
-        case "events"->{fields.add(new Field("startsAt","Начало · местное время",30));fields.add(new Field("capacity","Места (0 — до 300)",3));preset.addProperty("capacity","0");}
+        case "events"->{fields.add(new Field("startsAt","Начало · местное время",30));fields.add(new Field("capacity","Места (0 — до 300)",3));fields.add(new Field("durationMinutes","Длительность в минутах (1–1440)",4));preset.addProperty("durationMinutes","60");preset.addProperty("capacity","0");}
         case "polls"->{fields.add(new Field("endsAt","Завершение · местное время",30));fields.add(new Field("options","Варианты через | (2–8)",808));for(String key:List.of("multiple","changeVote","liveResults")){var options=new JsonArray();options.add("Нет");options.add("Да");fields.add(new Field(key,key.equals("multiple")?"Несколько вариантов":key.equals("changeVote")?"Разрешить изменить голос":"Показывать результаты сразу",10,options));}}
     }if(plus())CommunityTools.creation(section,fields,preset);if(Set.of("board","events").contains(section)&&data.has("groups")&&!data.getAsJsonArray("groups").isEmpty()){var options=new JsonArray();var none=new JsonObject();none.addProperty("value","");none.addProperty("label","Без объединения");options.add(none);options.addAll(data.getAsJsonArray("groups"));fields.add(new Field("group","Объединение",40,options));}form(switch(section){case "board"->"Новое объявление";case "groups"->"Новое объединение";case "events"->"Новое событие";case "polls"->"Новое голосование";case "ideas"->"Новое предложение";default->"Новая запись";},"create",fields,preset);}
     static String optionValue(JsonElement option){return option.isJsonObject()?Json.str(option.getAsJsonObject(),"value"):option.getAsString();}

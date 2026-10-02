@@ -22,3 +22,6 @@ anthub/deploy/.env
 /dist/
 
 **/run-skin-smoke-*/
+
+# Isolated compatibility worlds and downloaded optional test mods
+**/run-compatibility-*/

@@ -27,6 +27,7 @@ public final class ServerIntegration {
     public static boolean supports(net.minecraft.server.level.ServerPlayer player,String feature){return FEATURES.getOrDefault(player.connection.getConnection(),Set.of()).contains(feature);}
     public static void install(IEventBus bus,ModContainer container){
         bus.addListener(ServerIntegration::tasks);
+        dev.abros.anthub.server.compat.CompatibilityRegistry.install();
         ServerDatabase.install();
         ServerSkins.install();AuthServer.install(bus,container);ServerFeatures.install();ServerUpdateNotice.install();
         NeoForge.EVENT_BUS.addListener(ServerIntegration::starting);

@@ -7,18 +7,18 @@ import java.util.*;
 public final class MenuCommands {
     public enum Effect { READ, WRITE, SIGNAL }
     public record Definition(String action, String operation, Effect effect, String administrativePermission) {}
-    private static final Set<String> COMMUNITY_READS = Set.of("hud", "list", "detail", "workList", "workGet", "workMembers",
+    private static final Set<String> COMMUNITY_READS = Set.of("hud", "list", "detail", "workList", "workGet", "workMembers", "workArchivePreview",
         "globalSearch", "toolsPrivacy", "toolsPlaces", "toolsFollowing", "toolsMapSettings", "toolsMapPeers",
         "plusProfile", "plusIgnores", "plusItemRead");
     private static final Set<String> READS = Set.of("players", "reports", "myReports", "myReport", "history", "menuData",
         "playerAdministration", "adminDashboard", "rolePreview", "diagnostics", "exportCommunity");
-    private static final Set<String> WRITES = Set.of("report", "reply", "moderate", "reportManage", "announce",
+    private static final Set<String> WRITES = Set.of("report", "reply", "moderate", "reportManage", "announce", "scheduledAnnouncements",
         "pinAnnouncement", "maintenance", "restart", "reloadMenu");
     private static final Map<String, String> PERMISSIONS = Map.of(
-        "announce", "anthub.announce", "pinAnnouncement", "anthub.announce", "maintenance", "anthub.maintenance",
+        "scheduledAnnouncements", "anthub.announce", "announce", "anthub.announce", "pinAnnouncement", "anthub.announce", "maintenance", "anthub.maintenance",
         "restart", "anthub.restart", "reports", "anthub.reports", "reply", "anthub.reports",
         "reportManage", "anthub.reports", "diagnostics", "anthub.diagnostics");
-    private static final Set<String> ACTIONS = Set.of("state", "report", "reports", "diagnostics", "announce", "maintenance",
+    private static final Set<String> ACTIONS = Set.of("state", "report", "reports", "diagnostics", "announce", "scheduledAnnouncements", "maintenance",
         "restart", "menuData", "myReports", "reply", "players", "moderate", "history", "reloadMenu", "community", "myReport",
         "subscribe", "pinAnnouncement", "exportCommunity", "playerAdministration", "moderationVote", "adminDashboard", "reportManage", "serverConfig", "rolePreview");
     public static boolean known(String action) { return ACTIONS.contains(action); }
@@ -29,6 +29,7 @@ public final class MenuCommands {
         Effect effect;
         if (action.equals("community")) effect = COMMUNITY_READS.contains(op) ? Effect.READ : Effect.WRITE;
         else if (action.equals("moderationVote")) effect = op.equals("view") ? Effect.READ : Effect.WRITE;
+        else if (action.equals("scheduledAnnouncements")) effect = Set.of("list","preview").contains(op)?Effect.READ:Effect.WRITE;
         else if (action.equals("serverConfig")) effect = op.equals("apply") ? Effect.WRITE : Effect.READ;
         else if (READS.contains(action) || action.equals("reportManage") && Set.of("bulkPreview", "staff").contains(op)) effect = Effect.READ;
         else effect = WRITES.contains(action) ? Effect.WRITE : Effect.SIGNAL;

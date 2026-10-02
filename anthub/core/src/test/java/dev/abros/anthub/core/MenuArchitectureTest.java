@@ -33,6 +33,14 @@ class MenuArchitectureTest {
         queue.enqueue(command, owner, false, 0); command.addProperty("title", "changed"); queue.cancel(owner);
         var write = queue.dispatch(0, new Object()).getFirst(); assertEquals("original", Json.str(write, "title")); assertTrue(write.has("operationId")); assertFalse(command.has("operationId"));
     }
+    @Test void initialBackgroundStateSurvivesScreenNavigation() {
+        var queue = new MenuTransport<Object>(); var loginScreen = new Object();
+        var state = json("{\"action\":\"state\",\"request\":\"initial\"}");
+        assertTrue(queue.enqueue(state, null, true, 0));
+        queue.cancel(loginScreen);
+        var packets = queue.dispatch(0, new Object());
+        assertEquals(1, packets.size()); assertEquals("state", Json.str(packets.getFirst(), "action"));
+    }
     @Test void backgroundWritesAndQueueOverflowAreRejected() {
         var queue = new MenuTransport<Object>(); assertThrows(IllegalArgumentException.class, () -> queue.enqueue(json("{\"action\":\"community\",\"op\":\"create\"}"), null, true, 0));
         for (int n = 0; n < 64; n++) { var q = read("r" + n); q.addProperty("id", "id" + n); assertTrue(queue.enqueue(q, null, false, 0)); }

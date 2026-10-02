@@ -49,7 +49,7 @@ final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Rec
             if(adminGroup.equals("overview")){
                 section("Сводка на сейчас");
                 if(ServerMenuClient.may("anthub.reports")){
-                    if(overviewData.has("attentionReports"))for(var entry:overviewData.getAsJsonArray("attentionReports")){var report=entry.getAsJsonObject();card(Json.opt(report,"player","Игрок"),Json.opt(report,"priority","normal").equals("high")?"Высокий приоритет":"Ожидает ответа",Json.opt(report,"message",""),Json.opt(report,"assignedName","").isBlank()?"Ответственный не назначен":"Ответственный: "+Json.opt(report,"assignedName",""),0xFFEF7777,()->minecraft.setScreen(new ReportDetailScreen(this,report,true)));}
+                    if(overviewData.has("attentionReports"))for(var entry:overviewData.getAsJsonArray("attentionReports")){var report=entry.getAsJsonObject();card(Json.opt(report,"player","Игрок"),Json.opt(report,"attentionReason","Ожидает ответа"),Json.opt(report,"message",""),Json.opt(report,"assignedName","").isBlank()?"Ответственный не назначен":"Ответственный: "+Json.opt(report,"assignedName",""),0xFFEF7777,()->minecraft.setScreen(new ReportDetailScreen(this,report,true)));}
                     if(summaries.isEmpty())card("Обращения игроков",overviewBusy?"Загрузка…":metric("openReports").equals("0")?"Все обращения обработаны":"Открыть очередь","Назначение ответственного и ответы","Открытые и закрытые обращения",0xFFEF7777,()->FeatureListScreen.open(this,"reports"));
                     section("Требуют внимания · приоритетные и самые старые");
                 }
@@ -67,6 +67,7 @@ final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Rec
                 if(ServerMenuClient.may("anthub.announce"))card("Объявления",stateFlag("pinned")?"Есть закреплённое":"Нет закреплённого","Разовое сообщение всем игрокам","Сообщение на главной AntHub",0xFFE2BE75,()->group("messages"));
                 if(ServerMenuClient.admin()&&ServerMenuClient.supports("player-tools"))card("Настройки сервера","Просмотр и изменения","Проверка значений перед применением","Изменения с подтверждением",0xFF82B6F2,()->minecraft.setScreen(new ServerSettingsReviewScreen(this)));
             }else if(adminGroup.equals("messages")&&ServerMenuClient.may("anthub.announce")){
+                if(ServerMenuClient.supports("scheduled-announcements"))card("Запланированные объявления","Публикация по времени","Предпросмотр текста и времени перед сохранением","Доставка игрокам онлайн без повторов",0xFF82B6F2,()->minecraft.setScreen(new ScheduledAnnouncementsScreen(this)));
                 card("Разовое объявление","Отправить игрокам","Текст появится у всех игроков","Сообщение и подтверждение отправки",0xFFE2BE75,()->action("announce"));
                 if(ServerMenuClient.supports("admin-tools")){
                     card("Сообщение на главной",stateFlag("pinned")?"Изменить закреплённое":"Закрепить объявление",stateFlag("pinned")?Json.opt(ServerMenuClient.state,"pinnedText",""):"Показывается на главной AntHub","Укажите текст и срок показа",0xFF79CBA6,()->action("pinAnnouncement"));

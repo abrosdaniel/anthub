@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "dev.abros.anthub.mixin.compat",
+  "plugin": "dev.abros.anthub.compat.CompatibilityMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "AccessDeniedScreenMixin",
+    "AccessDeniedProfileMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

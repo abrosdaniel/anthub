@@ -1,0 +1,13 @@
+package dev.abros.anthub.core;
+import com.google.gson.*;
+import java.util.*;
+/** Permission-scoped nearby read model. No world/chunk loading; at most eight panels per response. */
+final class StockHolograms {
+ static JsonArray read(PgDatabase db,CommunityStore store,CommunityStore.Actor actor,JsonObject input)throws Exception{
+  var out=new JsonArray();if(!input.has("stockView"))return out;var view=input.getAsJsonObject("stockView");String dimension=Json.str(view,"dimension");double x=view.get("x").getAsDouble(),y=view.get("y").getAsDouble(),z=view.get("z").getAsDouble();var tasks=new CommunityTasks(db,store);var cache=new HashMap<String,JsonObject>();var inventories=new HashSet<String>();
+  try(var q=db.connection().prepareStatement("SELECT s.body,s.task_id FROM community_task_stocks s JOIN community_group_items i ON i.id=s.task_id LEFT JOIN documents d ON d.id=i.group_id WHERE s.body->>'dimension'=? AND i.kind='task' AND coalesce(i.body->>'status','open')<>'done' AND ((i.group_id IS NULL AND i.owner=?) OR (d.body->>'status'='open' AND EXISTS(SELECT 1 FROM community_relations r WHERE r.document=i.group_id AND r.kind='members' AND r.actor=?))) ORDER BY s.location LIMIT 4096")){
+   q.setString(1,dimension);q.setString(2,actor.id());q.setString(3,actor.id());try(var rs=q.executeQuery()){while(rs.next()&&out.size()<8){var binding=Json.parse(rs.getString(1));String inventory=Json.opt(binding,"inventory","");if(inventory.isEmpty())continue;long pos;try{pos=Long.parseLong(inventory.substring(inventory.lastIndexOf(':')+1));}catch(NumberFormatException invalid){continue;}if(!inventories.add(inventory))continue;int bx=(int)(pos>>38),by=(int)(pos<<52>>52),bz=(int)(pos<<26>>38);if((bx-x)*(bx-x)+(by-y)*(by-y)+(bz-z)*(bz-z)>32*32)continue;String id=rs.getString(2);var task=cache.get(id);if(task==null){task=tasks.enrich(tasks.task(id,false));cache.put(id,task);}var row=new JsonObject();row.addProperty("dimension",dimension);row.addProperty("x",bx+.5);row.addProperty("y",by+1.5);row.addProperty("z",bz+.5);row.addProperty("title",Json.str(task,"title"));var resources=task.has("resources")?task.getAsJsonArray("resources"):new JsonArray();var amounts=task.getAsJsonArray("stocks").get(0).getAsJsonObject().getAsJsonObject("items");var values=new JsonArray();for(var resource:ResourceRequirements.ordered(resources,amounts)){var res=resource.deepCopy();res.addProperty("have",ResourceRequirements.count(res,amounts));res.addProperty("missing",ResourceRequirements.missing(res,amounts));values.add(res);if(values.size()==5)break;}row.add("resources",values);row.addProperty("remainingTypes",Math.max(0,resources.size()-values.size()));out.add(row);}}
+  }return out;
+ }
+ private StockHolograms(){}
+}
