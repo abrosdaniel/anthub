@@ -2,7 +2,7 @@
 
 AntHub uses native Minecraft rendering. No browser, HTML or CSS runtime is involved.
 The UI component library and application controllers are separate layers; the network protocol
-and compatibility major line remain unchanged for release 3.8.0.
+and compatibility major line remain unchanged for release 3.8.1.
 
 ## Dependency direction
 
