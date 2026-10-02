@@ -12,13 +12,25 @@ public final class Main {
             if(args.length!=5)throw new IllegalArgumentException("Parent PID and start instant required");
             long pid=Long.parseLong(args[3]);Instant expected=Instant.parse(args[4]);
             var parent=ProcessHandle.of(pid);
-            if(parent.isPresent()){
-                if(!parent.get().info().startInstant().orElseThrow().equals(expected))throw new IllegalStateException("Parent process identity changed");
-                parent.get().onExit().get(24,TimeUnit.HOURS);
-            }
+            if(parent.isPresent())awaitParent(parent.get(),expected);
             long deadline=System.nanoTime()+TimeUnit.HOURS.toNanos(24);
             while(true){try{new Transactions(game).apply(id);break;}catch(Transactions.BusyException busy){if(System.nanoTime()>deadline)throw busy;Thread.sleep(1000);}catch(java.io.IOException failure){try{new Transactions(game).abortReady(id);}catch(java.io.IOException abort){failure.addSuppressed(abort);}throw failure;}}
         }else if(operation.equals("recover")){new Transactions(game).recover(id);}
         else throw new IllegalArgumentException("Unknown operation");
+    }
+    static void awaitParent(ProcessHandle parent,Instant expected)throws Exception {
+        var observed=parent.info().startInstant();
+        // The parent can exit between lookup and metadata retrieval, notably on Linux.
+        if(observed.isEmpty()){
+            if(!parent.isAlive())return;
+            throw new IllegalStateException("Cannot verify live parent process identity");
+        }
+        if(!observed.get().equals(expected)){
+            if(!parent.isAlive())return;
+            throw new IllegalStateException("Parent process identity changed");
+        }
+        System.out.println("AntHub helper: waiting for Minecraft process to exit");
+        System.out.flush();
+        parent.onExit().get(24,TimeUnit.HOURS);
     }
 }

@@ -18,11 +18,15 @@ jobs:
       - run: ./gradlew build --no-daemon
         shell: bash
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
           name: anthub-${{ matrix.os }}
           path: |
             anthub/mod/build/libs/*.jar
             anthub/core/build/reports/tests/
+            anthub/helper/build/reports/tests/
+            anthub/helper/build/test-results/
+            anthub/bootstrap/build/reports/tests/
   postgres:
     strategy:
       fail-fast: false
