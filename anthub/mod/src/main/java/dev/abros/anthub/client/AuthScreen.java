@@ -10,7 +10,7 @@ import net.minecraft.network.chat.Component;
 final class AuthScreen extends Screen {
     private EditBox password,repeat,invitation;
     private int panelTop,panelBottom,statusTop;
-    private PasswordBox secret(int x,int y,int w,Component label){var field=addRenderableWidget(new PasswordBox(font,x,y,w-26,label));addRenderableWidget(new PasswordVisibilityButton(x+w-22,y,field));return field;}
+    private PasswordBox secret(int x,int y,int w,Component label){return UiFields.password(font,x,y,w,label,this::addRenderableWidget);}
     private boolean resetting,remember=true,error;
     private String status="";
     private long sent;
@@ -19,7 +19,7 @@ final class AuthScreen extends Screen {
     private boolean registering(){return !resetting&&Json.opt(AuthClient.offer,"type","").equals("new");}
     private String heading(){return resetting?"Восстановление доступа":registering()?"Добро пожаловать":"С возвращением";}
     private String action(){return resetting?"Сохранить новый пароль":registering()?"Создать аккаунт и войти":"Войти на сервер";}
-    private Button button(String text,int x,int y,int w,Runnable run){return addRenderableWidget(Button.builder(Component.literal(text),b->run.run()).bounds(x,y,w,20).build());}
+    private Button button(String text,int x,int y,int w,Runnable run){return addRenderableWidget(UiActions.button(Component.literal(text),UiActions.Tone.NORMAL,"",b->run.run()).bounds(x,y,w,20).build());}
     @Override protected void init(){
         int w=Math.min(320,width-32),x=(width-w)/2;panelTop=Math.max(6,(height-254)/2);int y=panelTop+46;
         String first=password==null?"":password.getValue(),second=repeat==null?"":repeat.getValue(),code=invitation==null?"":invitation.getValue();
@@ -28,7 +28,7 @@ final class AuthScreen extends Screen {
         password.setHint(Component.literal(resetting||registering()?"Придумайте пароль · от "+AuthClient.minimumPasswordLength()+" символов":"Введите пароль"));password.setValue(first);y+=22;
         if(resetting||registering()){repeat=secret(x,y,w,Component.literal("Повторите пароль"));repeat.setHint(Component.literal("Повторите новый пароль"));repeat.setValue(second);y+=22;}
         if(resetting){invitation=secret(x,y,w,Component.literal("Код от администратора"));invitation.setHint(Component.literal("Код приглашения от администратора"));invitation.setValue(code);y+=22;}
-        else{button((remember?"☑ ":"☐ ")+"Запомнить меня · 30 дней",x,y,w,()->{remember=!remember;rebuildWidgets();});y+=22;}
+        else{addRenderableWidget(new UiChoiceRow(x,y,w,"Запомнить меня · 30 дней",remember,-1,UiKit.ACCENT,()->{remember=!remember;rebuildWidgets();}));y+=22;}
         submit=button(action(),x,y,w,this::submit);y+=22;
         if(!registering()){button(resetting?"Вернуться ко входу":"Не помню пароль",x,y,w,()->{resetting=!resetting;clearSecrets();error=false;status=resetting?"Попросите администратора выдать приглашение для восстановления.":"";rebuildWidgets();});y+=22;}
         if(!resetting&&AuthClient.officialLauncher()&&Json.opt(AuthClient.offer,"mode","").equals("hybrid")&&AuthClient.offer.has("linked")&&AuthClient.offer.get("linked").getAsBoolean()){button("Войти через аккаунт Minecraft",x,y,w,()->{waiting("Проверяем аккаунт Minecraft…");AuthClient.official();});y+=22;}
@@ -54,6 +54,6 @@ final class AuthScreen extends Screen {
     @Override public boolean keyPressed(int key,int scan,int modifiers){if((key==257||key==335)&&getFocused() instanceof EditBox){if(getFocused()==password&&repeat!=null)setFocused(repeat);else if(getFocused()==repeat&&invitation!=null)setFocused(invitation);else submit();return true;}return super.keyPressed(key,scan,modifiers);}
     @Override public void onClose(){clearSecrets();AuthClient.cancel();}
     @Override public boolean isPauseScreen(){return false;}
-    @Override public void renderBackground(GuiGraphics g,int x,int y,float delta){super.renderBackground(g,x,y,delta);int w=Math.min(344,width-12),left=(width-w)/2;g.fill(left,panelTop,left+w,panelBottom,UiPalette.color(0xE5171C22));g.fill(left,panelTop,left+w,panelTop+2,UiPalette.color(0xFFE2BE75));}
+    @Override public void renderBackground(GuiGraphics g,int x,int y,float delta){super.renderBackground(g,x,y,delta);UiDialog.draw(g,width,Math.min(320,width-32),panelTop,panelBottom);}
     @Override public void render(GuiGraphics g,int x,int y,float delta){super.render(g,x,y,delta);int w=Math.min(320,width-32),left=(width-w)/2;Ui.centered(g,font,heading(),width/2,panelTop+12,UiPalette.color(0xE2BE75));String name=Json.opt(AuthClient.offer,"name","");Ui.centered(g,font,font.plainSubstrByWidth(name+" · "+(resetting?"Новый пароль":registering()?"Создание аккаунта":"Вход в аккаунт"),w),width/2,panelTop+29,UiPalette.color(0xCCD4DE));if(error)g.fill(left-4,statusTop,left-2,panelBottom-30,UiPalette.color(0xFFFF8A80));Ui.status(g,font,status.isEmpty()?"Защищённое подключение · вход до загрузки мира":status,left,statusTop,w,panelBottom-30);}
 }

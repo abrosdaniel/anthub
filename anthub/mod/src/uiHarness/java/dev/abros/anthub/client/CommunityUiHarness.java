@@ -85,7 +85,7 @@ public final class CommunityUiHarness {
     case 59 -> {for(var child:mc.screen.children())if(child instanceof Button b&&b.getX()>20&&List.of("Сервер","Журнал").contains(b.getMessage().getString()))throw new IllegalStateException("Limited moderator sees unrelated administration tabs");System.out.println("ANTHUB_UI_SCOPED_PERMISSIONS_OK");}
     case 60 -> {open("normal");mc.options.guiScale().set(2);mc.resizeDisplay();mc.setScreen(new PlayerActionsScreen(null,player(),actions(),true));}
     case 61 -> clickLabel(Client.tr("server.command.kill").getString());
-    case 62 -> {if(!(mc.screen instanceof net.minecraft.client.gui.screens.ConfirmScreen))throw new IllegalStateException("Kill needs confirmation");mc.setScreen(new ReportScreen(new CommunityScreen(null,"home",""),"Игрок: ABROSxd\n"));}
+    case 62 -> {if(!(mc.screen instanceof UiConfirmDialog))throw new IllegalStateException("Kill needs confirmation");mc.setScreen(new ReportScreen(new CommunityScreen(null,"home",""),"Игрок: ABROSxd\n"));}
     case 63 -> {for(var child:mc.screen.children())if(child instanceof net.minecraft.client.gui.components.MultiLineEditBox e)e.setValue("Первая строка жалобы\nВторая строка с подробностями");}
     case 64 -> clickLabel("Отправить");
     case 65 -> {if(mc.screen instanceof ReportScreen)throw new IllegalStateException("Report did not send directly");mc.setScreen(new ModerationVoteScreen(mc.screen,player()));}

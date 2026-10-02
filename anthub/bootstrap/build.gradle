@@ -34,7 +34,7 @@ tasks.register('verifyBundle') {
             }
             assert !innerEntries.keySet().any { it.startsWith('org/sqlite/') || it.startsWith('org/bouncycastle/') }
             assert innerEntries.containsKey('dev/abros/anthub/core/auth/AuthTls.class')
-            assert !innerEntries.keySet().any { it.contains('UiHarness') || it.contains('UiKitPreview') }
+            assert !innerEntries.keySet().any { it.contains('Harness') || it.contains('UiKitPreview') }
             assert innerEntries.containsKey('anthub.mixins.json')
             assert innerEntries.containsKey('dev/abros/anthub/mixin/LoginIdentityMixin.class')
             assert new String(innerEntries['META-INF/accesstransformer.cfg'], 'UTF-8').contains(

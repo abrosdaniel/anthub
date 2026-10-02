@@ -5,7 +5,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.*;
 import net.minecraft.util.FormattedCharSequence;
 /** Never exposes a password through narration or copy/cut shortcuts. Pasting remains available. */
-final class PasswordBox extends EditBox {
+final class PasswordBox extends UiEditBox {
  private boolean revealed;
  void toggleVisibility(){revealed=!revealed;}
  boolean revealed(){return revealed;}

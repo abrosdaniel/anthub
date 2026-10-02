@@ -24,14 +24,14 @@ final class CoreVersionsPopup extends ScrollScreen {
     @Override protected void init(){
         ModalLayer.prepare(parent,this);
         int x=left(),w=panelWidth();
-        scrollArea(versions.size()+1,66,bottom()-92,24,x+w-10);
+        scrollArea(versions.size()+1,new dev.abros.anthub.core.NativeLayout.Box(x,66,Math.max(0,w),Math.max(0,(bottom()-92)-(66))),24);
         for(int i=firstRow;i<Math.min(versions.size()+1,firstRow+visibleRows);i++){
             var update=i==0?null:versions.get(i-1);
             String label=update==null?"✓ "+AntHub.VERSION+" · установлена":(update.equals(selected)?"→ ":"")+update.version();
-            var choice=addRenderableWidget(Button.builder(Component.literal(font.plainSubstrByWidth(label,w-34)),button->{selected=update;rebuildWidgets();}).bounds(x+8,66+(i-firstRow)*24,w-24,20).build());choice.active=!installing&&update!=null;
+            var choice=addRenderableWidget(UiActions.button(Component.literal(font.plainSubstrByWidth(label,w-34)),UiActions.Tone.NORMAL,"",button->{selected=update;rebuildWidgets();}).bounds(x+8,66+(i-firstRow)*24,w-24,20).build());choice.active=!installing&&update!=null;
         }
-        var install=addRenderableWidget(Button.builder(Component.literal(installing?"Подготовка…":selected==null?"Выберите версию":"Установить "+selected.version()),button->install()).bounds(x+8,bottom()-58,w-16,20).build());install.active=selected!=null&&!installing&&Client.pending.isEmpty();
-        var close=addRenderableWidget(Button.builder(Component.literal("Закрыть"),button->onClose()).bounds(x+8,bottom()-34,w-16,20).build());close.active=!installing;
+        var install=addRenderableWidget(UiActions.button(Component.literal(installing?"Подготовка…":selected==null?"Выберите версию":"Установить "+selected.version()),UiActions.Tone.NORMAL,"",button->install()).bounds(x+8,bottom()-58,w-16,20).build());install.active=selected!=null&&!installing&&Client.pending.isEmpty();
+        var close=UiActions.close(new dev.abros.anthub.core.NativeLayout.Box(x+8,bottom()-34,w-16,20),this::addRenderableWidget,this::onClose);close.active=!installing;
         if(!started){started=true;load();}
     }
     private void load(){
@@ -44,11 +44,9 @@ final class CoreVersionsPopup extends ScrollScreen {
         if(selected==null||installing)return;installing=true;status="";var update=selected;rebuildWidgets();
         Client.IO.submit(()->{try{String transaction=Client.hub.prepareCoreUpdate(Client.loadedJar,update);Client.pending=transaction;minecraft.execute(()->minecraft.setScreen(new RestartScreen(parent,transaction)));}catch(Exception failure){minecraft.execute(()->{installing=false;status=Errors.message(failure);rebuildWidgets();});}});
     }
-    @Override public void renderBackground(GuiGraphics graphics,int x,int y,float delta){
-        graphics.fill(0,0,width,height,UiPalette.color(0x88090E14));graphics.fill(left(),34,left()+panelWidth(),bottom(),UiPalette.color(0xFF1B252E));graphics.renderOutline(left(),34,panelWidth(),bottom()-34,UiPalette.color(0xFF536879));
-    }
+    @Override public void renderBackground(GuiGraphics graphics,int x,int y,float delta){UiDialog.surface(graphics,left(),34,panelWidth(),bottom()-34);}
     @Override public void render(GuiGraphics graphics,int x,int y,float delta){
-        ModalLayer.render(parent,this,graphics,delta,()->{super.render(graphics,x,y,delta);
+        UiDialog.render(parent,this,graphics,delta,()->{super.render(graphics,x,y,delta);
             graphics.drawString(font,"Установлена: "+AntHub.VERSION,left()+8,44,UiPalette.color(0xE2BE75));
             graphics.drawString(font,font.plainSubstrByWidth(loading?"Загрузка…":status,panelWidth()-16),left()+8,bottom()-82,UiPalette.color(0xBAC7D2));graphics.flush();
         });

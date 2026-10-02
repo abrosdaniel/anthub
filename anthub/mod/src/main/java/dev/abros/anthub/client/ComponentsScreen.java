@@ -7,16 +7,16 @@ import net.minecraft.network.chat.Component;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 public final class ComponentsScreen extends ScrollScreen {
- private int panelTop(){return DialogPanel.top(height,330);}
+ private int panelTop(){return UiDialog.top(height,330);}
  private int panelBottom(){return height-panelTop();}
- @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,300,panelTop(),panelBottom());}
+ @Override public void renderBackground(GuiGraphics g,int x,int y,float d){UiDialog.draw(g,width,300,panelTop(),panelBottom());}
     private final Screen parent;private final RepositoryClient.Release release;private Set<String> selected;private volatile String status="";private volatile boolean busy;private final Map<Button,Boolean> enabled=new HashMap<>();private Button apply,back;private AtomicBoolean cancel=new AtomicBoolean();private final PackOperations operations;
     public ComponentsScreen(Screen parent,RepositoryClient.Release release){super(Client.tr("components"));this.parent=parent;this.release=release;operations=new PackOperations(Client.hub,Client.IO);selected=Client.hub.choices(release.manifest());}
     private Component action(){return Client.tr(Client.hub.active()!=null&&Client.hub.active().repository().equals(release.manifest().repository())?"update":"install");}
-    @Override protected void init(){enabled.clear();var cs=release.manifest().components();var previous=Client.hub.active();var newOptional=new HashSet<String>();if(previous!=null&&previous.repository().equals(release.manifest().repository())){var oldIds=new HashSet<String>();for(var c:previous.components())oldIds.add(c.id());for(var c:cs)if(c.kind().equals("optional")&&!oldIds.contains(c.id()))newOptional.add(c.id());}scrollArea(cs.size(),panelTop()+35,panelBottom()-90,24,width/2+153);
+    @Override protected void init(){enabled.clear();var cs=release.manifest().components();var previous=Client.hub.active();var newOptional=new HashSet<String>();if(previous!=null&&previous.repository().equals(release.manifest().repository())){var oldIds=new HashSet<String>();for(var c:previous.components())oldIds.add(c.id());for(var c:cs)if(c.kind().equals("optional")&&!oldIds.contains(c.id()))newOptional.add(c.id());}scrollArea(cs.size(),new dev.abros.anthub.core.NativeLayout.Box(width/2-150,panelTop()+35,Math.max(0,300),Math.max(0,(panelBottom()-90)-(panelTop()+35))),24);
         for(int i=firstRow;i<Math.min(firstRow+visibleRows,cs.size());i++){var c=cs.get(i);var button=new UiChoiceRow(width/2-150,panelTop()+35+(i-firstRow)*24,300,c.name()+" · "+Client.tr("kind."+c.kind()).getString()+(newOptional.contains(c.id())?" · новое":""),selected.contains(c.id()),-1,UiKit.ACCENT,()->{if(busy)return;Set<String> choice=new HashSet<>(selected);if(!choice.remove(c.id()))choice.add(c.id());else{boolean changed;do{changed=false;for(var dependent:cs)if(choice.contains(dependent.id())&&dependent.dependencies().stream().anyMatch(id->!choice.contains(id))){choice.remove(dependent.id());changed=true;}}while(changed);}try{selected=new Selection(release.manifest()).resolve(choice);status="";rebuildWidgets();}catch(Exception e){status=Errors.message(e);}});boolean allowed=!new Selection(release.manifest()).resolve(Set.of()).contains(c.id());button.active=allowed&&!busy;if(!allowed)button.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(PackSummary.lockedReason(release.manifest(),c.id()))));enabled.put(button,allowed);addRenderableWidget(button);}
-        apply=addRenderableWidget(Button.builder(action(),b->plan()).bounds(width/2-150,panelBottom()-54,300,20).build());
-        back=addRenderableWidget(Button.builder(Client.tr(busy?"cancel":"back"),b->onClose()).bounds(width/2-100,panelBottom()-28,200,20).build());
+        apply=addRenderableWidget(UiActions.button(action(),UiActions.Tone.NORMAL,"",b->plan()).bounds(width/2-150,panelBottom()-54,300,20).build());
+        back=UiPageFooter.fit(new dev.abros.anthub.core.NativeLayout.Box(width/2-150,panelBottom()-28,300,20)).end(UiActions.Command.BACK,this::addRenderableWidget,this::onClose);
     }
     @Override public void tick(){super.tick();enabled.forEach((button,allowed)->button.active=allowed&&!busy);apply.active=!busy&&Client.pending.isEmpty();back.setMessage(Client.tr(busy?"cancel":"back"));}
     private void plan(){
@@ -73,6 +73,6 @@ public final class ComponentsScreen extends ScrollScreen {
         Client.error=status;
         minecraft.setScreen(new ReviewScreen(this,Client.tr("install.failed"),status,Client.tr("retry"),()->{minecraft.setScreen(this);plan();}));
     }
-    @Override public void render(GuiGraphics g,int mx,int my,float pt){super.render(g,mx,my,pt);UiHeading.dialog(g,font,title,width/2-150,panelTop(),300);Ui.status(g,font,status,Math.max(10,width/2-150),panelBottom()-84,Math.min(300,width-20),panelBottom()-60);}
+    @Override public void render(GuiGraphics g,int mx,int my,float pt){UiDialog.render(parent,this,g,pt,()->{super.render(g,mx,my,pt);UiHeading.dialog(g,font,title,width/2-150,panelTop(),300);Ui.status(g,font,status,Math.max(10,width/2-150),panelBottom()-84,Math.min(300,width-20),panelBottom()-60);});}
     @Override public void onClose(){cancel.set(true);minecraft.setScreen(parent);}
 }

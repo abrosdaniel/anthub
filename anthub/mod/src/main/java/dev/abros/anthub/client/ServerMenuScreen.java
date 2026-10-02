@@ -30,20 +30,20 @@ final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Rec
     private boolean stateFlag(String key){return ServerMenuClient.state.has(key)&&ServerMenuClient.state.get(key).getAsBoolean();}
     private boolean scheduled(){return ServerMenuClient.state.has("restartAt")&&ServerMenuClient.state.get("restartAt").getAsLong()>0;}
     private String modeKey(){return stateFlag("maintenance")+":"+scheduled()+":"+stateFlag("pinned")+":"+dev.abros.anthub.core.DisplayCounts.text(ServerMenuClient.state,"online","");}
-    private int columns(){return width-nav.left()-14>=440?2:1;}
+    private int columns(){return nav.right()-nav.left()-14>=440?2:1;}
     private void card(String title,String value,String first,String second,int accent,Runnable action){summaries.add(new Summary(title,value,List.of(first,second),accent,action));}
     private void export(String section){var q=new JsonObject();q.addProperty("action","exportCommunity");q.addProperty("section",section);ServerMenuClient.request(q);}
     private String sectionTitle(){return switch(adminGroup){case "server"->"Управление сервером";case "messages"->"Объявления";case "data"->"Экспорт данных";default->"Администрирование";};}
-    private void button(String key,int x,int y,int w,Runnable action){addRenderableWidget(Button.builder(Client.tr(key),b->action.run()).bounds(x,y,w,20).build());}
+    private void button(String key,int x,int y,int w,Runnable action){addRenderableWidget(UiActions.button(Client.tr(key),UiActions.Tone.NORMAL,"",b->action.run()).bounds(x,y,w,20).build());}
     @Override protected void init(){
         nav.build(tab,this::addRenderableWidget);
         if(tab.equals("admin")&&!ServerMenuClient.staff()){CommunityScreen.open(parent,"home");return;}
-        content.bounds(nav.left(),70,width-nav.left()-14,Math.max(30,height-145));
-        if(tab.equals("help")){if(System.getenv("ANTHUB_PILOT_UI")!=null)addRenderableWidget(Button.builder(Component.literal("UI Kit"),b->minecraft.setScreen(new UiKitShowcaseScreen(this))).bounds(width-94,42,80,20).build());addRenderableWidget(Button.builder(Component.literal("Интерфейс и голос…"),b->minecraft.setScreen(new ChoicePopup(this,"Настройки клиента",List.of("Доступность интерфейса","Диагностика Plasmo Voice"),i->minecraft.setScreen(i==0?new AccessibilityScreen(this):new VoiceDiagnosticsScreen(this))))).bounds(nav.left(),42,Math.min(180,width-nav.left()-14),20).build());button("server.report",nav.left(),height-72,Math.min(180,(width-nav.left()-22)/2),()->minecraft.setScreen(new ReportScreen(this)));button("server.myReports",nav.left()+(width-nav.left())/2,height-72,Math.min(180,(width-nav.left()-22)/2),()->FeatureListScreen.open(this,"myReports"));}
+        content.bounds(nav.left(),70,nav.right()-nav.left()-14,Math.max(30,height-145));
+        if(tab.equals("help")){if(System.getenv("ANTHUB_PILOT_UI")!=null)addRenderableWidget(UiActions.button(Component.literal("UI Kit"),UiActions.Tone.NORMAL,"",b->minecraft.setScreen(new UiKitShowcaseScreen(this))).bounds(nav.right()-94,42,80,20).build());addRenderableWidget(UiActions.button(Component.literal("Интерфейс и голос…"),UiActions.Tone.NORMAL,"",b->minecraft.setScreen(new ChoicePopup(this,"Настройки клиента",List.of("Доступность интерфейса","Диагностика Plasmo Voice"),i->minecraft.setScreen(i==0?new AccessibilityScreen(this):new VoiceDiagnosticsScreen(this))))).bounds(nav.left(),42,Math.min(180,nav.right()-nav.left()-14),20).build());button("server.report",nav.left(),height-72,Math.min(180,(nav.right()-nav.left()-22)/2),()->minecraft.setScreen(new ReportScreen(this)));button("server.myReports",nav.left()+(nav.right()-nav.left())/2,height-72,Math.min(180,(nav.right()-nav.left()-22)/2),()->FeatureListScreen.open(this,"myReports"));}
         if(tab.equals("admin")){
-            int left=nav.left(),available=width-left-14;
+            int left=nav.left(),available=Math.min(880,nav.right()-left-14);
             boolean server=ServerMenuClient.may("anthub.announce")||ServerMenuClient.may("anthub.maintenance")||ServerMenuClient.may("anthub.restart");
-            if(!adminGroup.equals("overview"))addRenderableWidget(Button.builder(Component.literal("К обзору"),b->group("overview")).bounds(left,42,100,20).build());
+            if(!adminGroup.equals("overview"))addRenderableWidget(UiActions.button(Component.literal("К обзору"),UiActions.Tone.NORMAL,"",b->group("overview")).bounds(left,42,100,20).build());
             summaries.clear();stateKey=modeKey();
             dashboardSections.clear();
             if(adminGroup.equals("overview")){
@@ -70,7 +70,7 @@ final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Rec
                 card("Разовое объявление","Отправить игрокам","Текст появится у всех игроков","Сообщение и подтверждение отправки",0xFFE2BE75,()->action("announce"));
                 if(ServerMenuClient.supports("admin-tools")){
                     card("Сообщение на главной",stateFlag("pinned")?"Изменить закреплённое":"Закрепить объявление",stateFlag("pinned")?Json.opt(ServerMenuClient.state,"pinnedText",""):"Показывается на главной AntHub","Укажите текст и срок показа",0xFF79CBA6,()->action("pinAnnouncement"));
-                    if(stateFlag("pinned"))card("Снять объявление","Убрать с главной","Текущее сообщение перестанет показываться","Действие потребует подтверждения",0xFFEF7777,()->minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(this);if(yes){var q=new JsonObject();q.addProperty("action","pinAnnouncement");q.addProperty("text","");q.addProperty("minutes",1);ServerMenuClient.request(q);}},Component.literal("Снять объявление?"),Component.literal("Сообщение исчезнет с главной AntHub."))));
+                    if(stateFlag("pinned"))card("Снять объявление","Убрать с главной","Текущее сообщение перестанет показываться","Действие потребует подтверждения",0xFFEF7777,()->minecraft.setScreen(new UiConfirmDialog(yes->{minecraft.setScreen(this);if(yes){var q=new JsonObject();q.addProperty("action","pinAnnouncement");q.addProperty("text","");q.addProperty("minutes",1);ServerMenuClient.request(q);}},Component.literal("Снять объявление?"),Component.literal("Сообщение исчезнет с главной AntHub."))));
                 }
             }else if(adminGroup.equals("data")&&ServerMenuClient.admin()&&ServerMenuClient.supports("admin-tools")){
                 String[] sections={"","board","groups","events","polls","ideas"},labels={"Все разделы","Доска объявлений","Объединения","События","Голосования","Предложения"};
@@ -78,21 +78,21 @@ final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Rec
             }
             int columns=columns(),tileWidth=(available-8*(columns-1))/columns;
             if(adminGroup.equals("overview")){
-                scrollArea(dashboardSections.size(),42,height-64,112,width-10);
+                scrollArea(dashboardSections.size(),new dev.abros.anthub.core.NativeLayout.Box(left,42,Math.max(0,available),Math.max(0,(height-64)-(42))),112);
                 for(int row=firstRow;row<Math.min(dashboardSections.size(),firstRow+visibleRows);row++){
                     int y=42+(row-firstRow)*112;var section=dashboardSections.get(row);
-                    if(row==0){String[] keys={"openReports","unassignedReports","highReports"},labels={"Открытые обращения","Без ответственного","Высокий приоритет"};int statWidth=(available-8)/3;for(int i=0;i<3;i++){String key=keys[i];if(ServerMenuClient.may("anthub.reports"))addRenderableWidget(new UiMetricCard(left+i*(statWidth+4),y+18,statWidth,labels[i],metric(key),()->minecraft.setScreen(ServerMenuClient.supports("community-extensions")?new ReportQueueScreen(this,key.equals("unassignedReports")?"unassigned":key.equals("highReports")?"high":"all"):new FeatureListScreen(this,"reports"))));}if(ServerMenuClient.may("anthub.reports"))addRenderableWidget(Button.builder(Component.literal("Все обращения"),b->FeatureListScreen.open(this,"reports")).bounds(left,y+80,110,20).build());continue;}
+                    if(row==0){String[] keys={"openReports","unassignedReports","highReports"},labels={"Открытые обращения","Без ответственного","Высокий приоритет"};int statWidth=(available-8)/3;for(int i=0;i<3;i++){String key=keys[i];if(ServerMenuClient.may("anthub.reports"))addRenderableWidget(new UiMetricCard(left+i*(statWidth+4),y+18,statWidth,labels[i],metric(key),()->minecraft.setScreen(ServerMenuClient.supports("community-extensions")?new ReportQueueScreen(this,key.equals("unassignedReports")?"unassigned":key.equals("highReports")?"high":"all"):new FeatureListScreen(this,"reports"))));}if(ServerMenuClient.may("anthub.reports"))addRenderableWidget(UiActions.button(Component.literal("Все обращения"),UiActions.Tone.NORMAL,"",b->FeatureListScreen.open(this,"reports")).bounds(left,y+80,110,20).build());continue;}
                     int count=section.items.size(),cardWidth=(available-8*(Math.min(count,columns)-1))/Math.max(1,Math.min(count,columns));
                     for(int n=0;n<Math.min(count,columns);n++){var item=section.items.get(n);addRenderableWidget(new UiSummaryCard(left+n*(cardWidth+8),y+18,cardWidth,item.title,item.value,item.details,item.accent,item.action));}
                 }
-                if(ServerMenuClient.admin()&&ServerMenuClient.supports("player-tools")){overviewRefresh=addRenderableWidget(Button.builder(Component.literal("Обновить"),b->loadOverview()).bounds(left,height-28,90,20).build());overviewRefresh.active=!overviewBusy;}
+                if(ServerMenuClient.admin()&&ServerMenuClient.supports("player-tools")){overviewRefresh=UiPageFooter.workspace(width,height).start(UiActions.Command.REFRESH,this::addRenderableWidget,this::loadOverview);overviewRefresh.active=!overviewBusy;}
             }else{
-                scrollArea((summaries.size()+columns-1)/columns,76,height-64,96,width-10);
+                scrollArea((summaries.size()+columns-1)/columns,new dev.abros.anthub.core.NativeLayout.Box(left,76,Math.max(0,available),Math.max(0,(height-64)-(76))),96);
                 for(int n=firstRow*columns;n<Math.min(summaries.size(),(firstRow+visibleRows)*columns);n++){var item=summaries.get(n);addRenderableWidget(new UiSummaryCard(left+n%columns*(tileWidth+8),76+(n/columns-firstRow)*96,tileWidth,item.title,item.value,item.details,item.accent,item.action));}
             }
 
         }
-        button("back",width-114,height-28,100,()->onClose());
+        UiPageFooter.workspace(width,height).end(UiActions.Command.BACK,this::addRenderableWidget,this::onClose);
         if(tab.equals("admin")&&adminGroup.equals("overview")&&(!overviewLoaded||refreshOnReturn)){refreshOnReturn=false;loadOverview();}
     }
     private void action(String name){
@@ -100,7 +100,7 @@ final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Rec
             var j=new JsonObject();j.addProperty("text","");
             if(name.equals("maintenanceOff")){j.addProperty("action","maintenance");j.addProperty("enabled",false);j.addProperty("minutes",0);}
             else {j.addProperty("action","restart");j.addProperty("seconds",0);}
-            minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(this);if(yes)ServerMenuClient.request(j);},Client.tr("server.confirm"),Client.tr("server."+name)));
+            minecraft.setScreen(new UiConfirmDialog(yes->{minecraft.setScreen(this);if(yes)ServerMenuClient.request(j);},Client.tr("server.confirm"),Client.tr("server."+name)));
         }else minecraft.setScreen(new ActionForm(this,name));
     }
     @Override public void removed(){refreshOnReturn=true;}
@@ -110,14 +110,14 @@ final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Rec
         if(tab.equals("help"))return Json.opt(j,"help","")+"\n\n"+Client.tr("server.helptext").getString();
         return Client.tr("server.admintext").getString();
     }
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.page(g,font,Component.literal(tab.equals("admin")?sectionTitle():ServerMenuClient.header()),width);content.text(body());if(!tab.equals("admin"))content.render(g,font);
-        if(tab.equals("admin")&&adminGroup.equals("overview"))for(int row=firstRow;row<Math.min(dashboardSections.size(),firstRow+visibleRows);row++)Ui.text(g,font,UiKit.fit(font,dashboardSections.get(row).title,width-nav.left()-20),nav.left(),42+(row-firstRow)*112,UiKit.muted(),false);
-        Ui.status(g,font,adminGroup.equals("overview")&&!overviewNotice.isEmpty()?overviewNotice:ServerMenuClient.result,nav.left(),height-48,width-28,height-32);}
+    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.page(g,font,Component.literal(tab.equals("admin")?sectionTitle():ServerMenuClient.header()),width);nav.drawFrame(g);content.text(body());if(!tab.equals("admin"))content.render(g,font);
+        if(tab.equals("admin")&&adminGroup.equals("overview"))for(int row=firstRow;row<Math.min(dashboardSections.size(),firstRow+visibleRows);row++)Ui.text(g,font,UiKit.fit(font,dashboardSections.get(row).title,nav.right()-nav.left()-20),nav.left(),42+(row-firstRow)*112,UiKit.muted(),false);
+        Ui.status(g,font,adminGroup.equals("overview")&&!overviewNotice.isEmpty()?overviewNotice:ServerMenuClient.result,nav.left(),height-48,nav.right()-nav.left()-20,height-32);}
     @Override public boolean keyPressed(int key,int scan,int modifiers){
         if(!tab.equals("admin")&&(key==266||key==267)){content.scroll(nav.left()+8,106,key==266?6:-6);return true;}
         return super.keyPressed(key,scan,modifiers);
     }
-    @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(nav.scroll(x,dy)){rebuildWidgets();return true;}return !tab.equals("admin")&&content.scroll(x,y,dy)||super.mouseScrolled(x,y,dx,dy);}
+    @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(nav.scroll(x,y,dy)){rebuildWidgets();return true;}return !tab.equals("admin")&&content.scroll(x,y,dy)||super.mouseScrolled(x,y,dx,dy);}
     @Override public boolean mouseClicked(double x,double y,int b){if(b==0){if(content.click(x,y))return true;var style=content.link(font,x,y);if(style!=null&&style.getClickEvent()!=null)return handleComponentClicked(style);}return super.mouseClicked(x,y,b);}
     @Override public boolean mouseDragged(double x,double y,int b,double dx,double dy){return b==0&&content.drag(y)||super.mouseDragged(x,y,b,dx,dy);}
     @Override public boolean mouseReleased(double x,double y,int b){content.release();return super.mouseReleased(x,y,b);}
@@ -125,35 +125,36 @@ final class ServerMenuScreen extends ScrollScreen implements CommunityScreen.Rec
     @Override public void onClose(){if(tab.equals("admin")&&!adminGroup.equals("overview")){group(adminGroup.equals("messages")?"server":"overview");return;}overviewSession.cancel();minecraft.setScreen(parent);}
 
     private static final class ActionForm extends Screen {
-        private final Screen parent;private final String action;private EditBox message,duration;private String error="";
+        private final Screen parent;private final String action;private EditBox message,duration;private String error="";private boolean urgent;
         ActionForm(Screen parent,String action){super(action.equals("pinAnnouncement")?Component.literal("Закреплённое объявление"):Client.tr("server."+action));this.parent=parent;this.action=action;}
-        private int top(){return DialogPanel.top(height,240);}
+        private int top(){return UiDialog.top(height,240);}
         private int bottom(){return height-top();}
         private Component durationLabel(){return action.equals("pinAnnouncement")?Component.literal("Минуты (1–10080)"):Client.tr(action.equals("restart")?"server.seconds":"server.minutes");}
         private boolean timed(){return !action.equals("announce");}
-        @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(420,width-40),top(),bottom());}
+        @Override public void renderBackground(GuiGraphics g,int x,int y,float d){UiDialog.draw(g,width,Math.min(420,width-40),top(),bottom());}
  @Override protected void init(){
             int w=Math.min(420,width-40),x=(width-w)/2;
             String draft=message==null?(action.equals("pinAnnouncement")?Json.opt(ServerMenuClient.state,"pinnedText",""):""):message.getValue(),value=duration==null?(action.equals("maintenance")?"15":"60"):duration.getValue();
-            message=addRenderableWidget(new UiEditBox(font,x,top()+54,w,20,Client.tr("server.message")));message.setMaxLength(500);message.setValue(draft);
-            if(timed()){duration=addRenderableWidget(new UiEditBox(font,x,top()+98,100,20,durationLabel()));duration.setMaxLength(5);duration.setFilter(v->v.matches("[0-9]*"));duration.setValue(value);}
-            addRenderableWidget(Button.builder(Client.tr("server.confirm"),b->submit()).bounds(x,bottom()-28,w/2-3,20).build());
-            addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(x+w/2+3,bottom()-28,w/2-3,20).build());
+            message=addRenderableWidget(UiFields.text(font,x,top()+54,w,20,Client.tr("server.message")));message.setMaxLength(500);message.setValue(draft);
+            if(action.equals("announce"))addRenderableWidget(new UiToggle("Критическое предупреждение",x,top()+88,w,urgent,()->{urgent=!urgent;rebuildWidgets();}));
+            if(timed()){duration=addRenderableWidget(UiFields.text(font,x,top()+98,100,20,durationLabel()));duration.setMaxLength(5);duration.setFilter(v->v.matches("[0-9]*"));duration.setValue(value);}
+            addRenderableWidget(UiActions.button(Client.tr("server.confirm"),UiActions.Tone.NORMAL,"",b->submit()).bounds(x,bottom()-28,w/2-3,20).build());
+            UiActions.close(new dev.abros.anthub.core.NativeLayout.Box(x+w/2+3,bottom()-28,w/2-3,20),this::addRenderableWidget,this::onClose);
             setInitialFocus(message);
         }
         private void submit(){
             int amount=0;if(timed())try{amount=Integer.parseInt(duration.getValue());if(amount<(action.equals("maintenance")?0:1)||amount>(action.equals("maintenance")?1440:action.equals("pinAnnouncement")?10080:86400))throw new NumberFormatException();}catch(NumberFormatException ex){error=Client.tr("server.invalidnumber").getString();return;}
             if(message.getValue().isBlank()){error=Client.tr("server.reportempty").getString();return;}
-            var j=new JsonObject();j.addProperty("action",action);j.addProperty("text",message.getValue().strip());
+            var j=new JsonObject();j.addProperty("action",action);j.addProperty("text",message.getValue().strip());if(action.equals("announce"))j.addProperty("urgent",urgent);
             if(action.equals("pinAnnouncement"))j.addProperty("minutes",amount);else if(action.equals("maintenance")){j.addProperty("enabled",true);j.addProperty("minutes",amount);}else if(action.equals("restart"))j.addProperty("seconds",amount);
             Component summary=Component.literal(message.getValue());if(timed())summary=summary.copy().append(" · "+amount+(action.equals("restart")?" с":" мин"));
-            minecraft.setScreen(new ConfirmScreen(yes->{minecraft.setScreen(yes?parent:this);if(yes)ServerMenuClient.request(j);},title,summary));
+            minecraft.setScreen(new UiConfirmDialog(yes->{minecraft.setScreen(yes?parent:this);if(yes)ServerMenuClient.request(j);},title,summary));
         }
-        @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);int left=(width-Math.min(420,width-40))/2;
+        @Override public void render(GuiGraphics g,int x,int y,float d){UiDialog.render(parent,this,g,d,()->{super.render(g,x,y,d);int left=(width-Math.min(420,width-40))/2;
             UiHeading.dialog(g,font,title,left,top(),Math.min(420,width-40));Ui.text(g,font,Client.tr("server.message"),left,top()+40,AccessibilityScreen.foreground(UiPalette.color(0xEEEEEE)));
             if(timed())Ui.text(g,font,durationLabel(),left,top()+84,AccessibilityScreen.foreground(UiPalette.color(0xEEEEEE)));
-            Ui.status(g,font,error.isEmpty()?(action.equals("pinAnnouncement")?"Сообщение появится на главной до окончания указанного срока.":Client.tr("server.form."+action).getString()):error,left,top()+(timed()?130:90),Math.min(420,width-40),bottom()-36);
-        }
+            Ui.status(g,font,error.isEmpty()?(action.equals("pinAnnouncement")?"Сообщение появится на главной до окончания указанного срока.":Client.tr("server.form."+action).getString()):error,left,top()+(timed()?130:122),Math.min(420,width-40),bottom()-36);
+        });}
         @Override public void tick(){if(!ServerMenuClient.available())minecraft.setScreen(null);else if(!ServerMenuClient.may("anthub."+(action.equals("pinAnnouncement")?"announce":action)))minecraft.setScreen(parent);}
         @Override public boolean isPauseScreen(){return false;}
         @Override public void onClose(){minecraft.setScreen(parent);}

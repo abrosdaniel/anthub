@@ -22,18 +22,18 @@ final class ReportScreen extends Screen implements CommunityScreen.Receiver {
     ReportScreen(Screen parent,String initial){super(initial.startsWith("Игрок: ")?Component.literal("Жалоба на игрока"):Client.tr("server.report"));this.parent=parent;this.initial=initial;category=initial.startsWith("Игрок: ")?"player":"technical";draft=new TextDraft("report:"+initial);}
     private int panelHeight(){return Math.min(270,height-20);}
     private int top(){return (height-panelHeight())/2;}
-    @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(460,width-32),top(),top()+panelHeight());}
+    @Override public void renderBackground(GuiGraphics g,int x,int y,float d){UiDialog.draw(g,width,Math.min(460,width-32),top(),top()+panelHeight());}
  @Override protected void init(){
         String text=message==null?draft.load(""):message.getValue();
         // Older drafts included the target in the message itself.
         if(!initial.isEmpty()&&text.startsWith(initial))text=text.substring(initial.length());
         int w=Math.min(460,width-32),x=(width-w)/2,y=top();
-        if(initial.isEmpty()){var categoryButton=addRenderableWidget(Button.builder(Component.literal(switch(category){case "appeal"->"Обжаловать наказание";case "other"->"Другое";default->"Техническая проблема";}+" ▾"),b->minecraft.setScreen(new ChoicePopup(this,"Тема обращения",java.util.List.of("Техническая проблема","Обжаловать наказание","Другое"),n->{category=java.util.List.of("technical","appeal","other").get(n);rebuildWidgets();},b))).bounds(x,y+25,w,20).build());categoryButton.active=!busy&&pending==null;}
-        message=addRenderableWidget(new UiMultiLineEditBox(font,x,y+48,w,panelHeight()-110,Component.literal("Опишите, что произошло"),Client.tr("server.message")));
+        if(initial.isEmpty()){var categoryButton=addRenderableWidget(UiActions.button(Component.literal(switch(category){case "appeal"->"Обжаловать наказание";case "other"->"Другое";default->"Техническая проблема";}+" ▾"),UiActions.Tone.NORMAL,"",b->minecraft.setScreen(new ChoicePopup(this,"Тема обращения",java.util.List.of("Техническая проблема","Обжаловать наказание","Другое"),n->{category=java.util.List.of("technical","appeal","other").get(n);rebuildWidgets();},b))).bounds(x,y+25,w,20).build());categoryButton.active=!busy&&pending==null;}
+        message=addRenderableWidget(UiFields.multiline(font,x,y+48,w,panelHeight()-110,Component.literal("Опишите, что произошло"),Client.tr("server.message")));
         message.setCharacterLimit(Math.max(1,1500-initial.length()));message.setValue(text);
         message.setValueListener(draft::save);
-        send=addRenderableWidget(Button.builder(Client.tr("server.send"),b->sendReport()).bounds(x,y+panelHeight()-26,w/2-3,20).build());
-        addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(x+w/2+3,y+panelHeight()-26,w/2-3,20).build());
+        send=addRenderableWidget(UiActions.button(Client.tr("server.send"),UiActions.Tone.NORMAL,"",b->sendReport()).bounds(x,y+panelHeight()-26,w/2-3,20).build());
+        UiActions.close(new dev.abros.anthub.core.NativeLayout.Box(x+w/2+3,y+panelHeight()-26,w/2-3,20),this::addRenderableWidget,this::onClose);
         updateInputs();setInitialFocus(message);
     }
     private void updateInputs(){if(send!=null){send.active=!busy;send.setMessage(Component.literal(busy?"Отправка…":pending!=null?"Повторить отправку":"Отправить"));}if(message!=null)message.active=!busy&&pending==null;}
@@ -49,7 +49,7 @@ final class ReportScreen extends Screen implements CommunityScreen.Receiver {
             minecraft.execute(()->{if(minecraft.screen!=this){busy=false;return;}pending=j.deepCopy();status="Отправка…";ServerMenuClient.request(session.begin(j,true,System.currentTimeMillis()));});
         });
     }
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);int w=Math.min(460,width-32),left=(width-w)/2;UiHeading.dialog(g,font,title,left,top(),w);if(!initial.isBlank())Ui.text(g,font,font.plainSubstrByWidth(initial.strip(),w),left,top()+28,UiPalette.color(0xEEEEEE));Ui.status(g,font,status,left,top()+panelHeight()-49,w,top()+panelHeight()-28);}
+    @Override public void render(GuiGraphics g,int x,int y,float d){UiDialog.render(parent,this,g,d,()->{super.render(g,x,y,d);int w=Math.min(460,width-32),left=(width-w)/2;UiHeading.dialog(g,font,title,left,top(),w);if(!initial.isBlank())Ui.text(g,font,font.plainSubstrByWidth(initial.strip(),w),left,top()+28,UiPalette.color(0xEEEEEE));Ui.status(g,font,status,left,top()+panelHeight()-49,w,top()+panelHeight()-28);});}
     public void receiveCommunity(JsonObject response){if(!session.receive(response))return;busy=false;status=Json.opt(response,"text","");if(!response.has("error")){pending=null;draft.clear();ServerMenuClient.result="Отправлено администрации";minecraft.setScreen(parent);}else{if(Set.of("INVALID","FORBIDDEN","EXPIRED").contains(Json.opt(response,"code","")))pending=null;updateInputs();}}
     @Override public void tick(){if(session.timeout(System.currentTimeMillis())){busy=false;status="Нет ответа. Повторите отправку.";updateInputs();}if(!ServerMenuClient.available())onClose();}
     @Override public void onClose(){if(message!=null)draft.save(message.getValue());session.cancel();minecraft.setScreen(parent);}

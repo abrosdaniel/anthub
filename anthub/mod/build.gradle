@@ -12,7 +12,7 @@ tasks.named('processResources') {
     dependsOn ':helper:standaloneJar'
     from(project(':helper').tasks.named('standaloneJar')) { into 'anthub'; rename { 'helper.jar' } }
 }
-tasks.named('jar') { exclude 'dev/abros/anthub/client/*UiHarness*.class', 'dev/abros/anthub/client/UiKitPreview*.class'; from project(':core').sourceSets.main.output; archiveClassifier = 'game-module'; destinationDirectory = layout.buildDirectory.dir('internal') }
+tasks.named('jar') { exclude 'dev/abros/anthub/client/*Harness*.class', 'dev/abros/anthub/client/UiKitPreview*.class'; from project(':core').sourceSets.main.output; archiveClassifier = 'game-module'; destinationDirectory = layout.buildDirectory.dir('internal') }
 
 tasks.named('processResources') {
     from(rootProject.file('anthub/icon_256x256.png')) { into ''; rename { 'icon.png' } }
@@ -61,3 +61,58 @@ if (project.hasProperty('anthubUiHarness')) {
 if (project.hasProperty('anthubSkinSmoke')) {
     neoForge.runs.configureEach { gameDirectory = file('run-skin-smoke-' + name) }
 }
+
+// Guard the shared UI construction points against screen-specific replacements.
+tasks.register('checkUiComposition') {
+    def sources = fileTree('src/main/java/dev/abros/anthub/client') { include '*.java' }
+    inputs.files(sources)
+    doLast {
+        def violations = []
+        sources.each { source ->
+            def text = source.getText('UTF-8')
+            if (text.contains("applyGuiDefault") || source.name != "AccessibilityScreen.java" && text =~ /options\.guiScale\(\)\.set\(/)
+                violations.add("${source.name}: AntHub must not override Minecraft GUI scale")
+            if (source.name != 'UiFields.java' && text =~ /new\s+(UiEditBox|UiMultiLineEditBox|PasswordBox|PasswordVisibilityButton)\s*\(/)
+                violations.add("${source.name}: fields must be composed through UiFields")
+            if (source.name != 'UiTabs.java' && text =~ /new\s+(TabButton|UiTab)\s*\(/)
+                violations.add("${source.name}: tabs must be composed through UiTabs")
+            if (text =~ /new\s+(net\.minecraft\.client\.gui\.screens\.)?ConfirmScreen\s*\(/)
+                violations.add("${source.name}: confirmations must use UiConfirmDialog")
+            if (source.name != 'UiActions.java' && text.contains('Button.builder('))
+                violations.add("${source.name}: actions must declare their role through UiActions")
+
+            if (source.name != 'UiActions.java' && text =~ /UiActions\.button\((Component\.literal\("(Обновить|Повторить|Назад|Закрыть)"\)|Client\.tr\("(server\.refresh|back)"\))/)
+                violations.add("${source.name}: navigation/refresh must use semantic commands, never page-owned bounds")
+            if (source.name == 'ScrollScreen.java' && text =~ /scrollArea\(int count,int top/)
+                violations.add("${source.name}: coordinate-only scroll API is forbidden")
+            if (source.name == 'UiScrollbar.java' && text =~ /draw\(GuiGraphics g,int right/)
+                violations.add("${source.name}: scrollbar drawing must consume bounded geometry")
+            if (text.contains('DialogPanel.'))
+                violations.add("${source.name}: obsolete dialog surface")
+        }
+        if (!violations.empty) throw new GradleException(violations.join('\n'))
+    }
+}
+tasks.named('check') { dependsOn 'checkUiComposition' }
+
+// Migrated workspace views must not regain a second request/pagination implementation.
+tasks.register('checkMenuArchitecture') {
+    def views = ['TaskScreen.java', 'FeatureListScreen.java', 'NotificationPopup.java', 'CommunityScreen.java']
+    def clientSources = fileTree('src/main/java/dev/abros/anthub/client') { include views }
+    def coreSources = project(':core').fileTree('src/main/java') { include '**/*.java' }
+    inputs.files(clientSources, coreSources)
+    doLast {
+        def violations = []
+        clientSources.each { source ->
+            def text = source.getText('UTF-8')
+            if (text.contains('RequestSession') || text =~ /ServerMenuClient\.request\(/ || text =~ /\b(session|cursors|detailPages|batches)\s*=/)
+                violations.add("${source.name}: request lifecycle and paging belong to the core controller")
+        }
+        coreSources.each { source ->
+            if (source.getText('UTF-8') =~ /import\s+(net\.minecraft|net\.neoforged|dev\.abros\.anthub\.client)\./)
+                violations.add("${source.name}: core must stay independent of Minecraft and UI")
+        }
+        if (!violations.empty) throw new GradleException(violations.join('\n'))
+    }
+}
+tasks.named('check') { dependsOn 'checkMenuArchitecture' }

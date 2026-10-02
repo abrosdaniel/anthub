@@ -21,7 +21,7 @@ final class ProjectColumn extends AbstractWidget {
    }
    int half=(width-18)/2;
    String[] labels={"connect","refresh","pack","remove"};java.util.List<Consumer<String>> actions=java.util.List.of(join,refresh,settings,remove);
-   for(int i=0;i<4;i++){var action=actions.get(i);var button=Button.builder(Client.tr(labels[i]),b->action.accept(server)).bounds(getX()+4+(i%2)*(half+4),y+76+(i/2)*24,half,20).build();button.active=this.active;button.setFocused(isFocused() && keyboardIndex == servers.indexOf(server)*4+i);buttons.add(button);button.render(g,mx,my,delta);}
+   for(int i=0;i<4;i++){var action=actions.get(i);var button=UiActions.button(Client.tr(labels[i]),UiActions.Tone.NORMAL,"",b->action.accept(server)).bounds(getX()+4+(i%2)*(half+4),y+76+(i/2)*24,half,20).build();button.active=this.active;button.setFocused(isFocused() && keyboardIndex == servers.indexOf(server)*4+i);buttons.add(button);button.render(g,mx,my,delta);}
    if(Client.hub.active()!=null&&Client.hub.active().repository().equals(server))Ui.text(g,font,"●",getX()+width-15,y+5,UiPalette.color(0xFF77CC77));
 
   }y+=ROW;}g.disableScissor();if(servers.size()*ROW>height){int thumb=Math.max(12,height*height/(servers.size()*ROW));int start=getY()+(int)((height-thumb)*offset/(servers.size()*ROW-height));g.fill(getX()+width-4,start,getX()+width,start+thumb,UiPalette.color(0xFF999999));}}

@@ -7,13 +7,13 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.*;
 final class PlayerAdministrationScreen extends ScrollScreen implements CommunityScreen.Receiver {
- private int panelTop(){return DialogPanel.top(height,340);}
+ private int panelTop(){return UiDialog.top(height,340);}
  private int panelBottom(){return height-panelTop();}
- @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(520,width-32),panelTop(),panelBottom());}
+ @Override public void renderBackground(GuiGraphics g,int x,int y,float d){UiDialog.draw(g,width,Math.min(520,width-32),panelTop(),panelBottom());}
  private final Screen parent;private final JsonObject player;private final List<String> paragraphs=new ArrayList<>(),lines=new ArrayList<>();
  private String request="",cursor="",status="";private boolean started,busy;private long sent;
  PlayerAdministrationScreen(Screen parent,JsonObject player){super(Component.literal("Права и история · "+Json.str(player,"name")));this.parent=parent;this.player=player;}
- @Override protected void init(){lines.clear();for(String paragraph:paragraphs)for(var line:font.getSplitter().splitLines(paragraph,Math.min(520,width-32),net.minecraft.network.chat.Style.EMPTY))lines.add(line.getString());scrollArea(lines.size(),panelTop()+38,panelBottom()-58,14,(width+Math.min(520,width-32))/2+4);addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(width/2-100,panelBottom()-28,200,20).build());if(!started){started=true;load();}}
+ @Override protected void init(){lines.clear();for(String paragraph:paragraphs)for(var line:font.getSplitter().splitLines(paragraph,Math.min(520,width-32),net.minecraft.network.chat.Style.EMPTY))lines.add(line.getString());scrollArea(lines.size(),new dev.abros.anthub.core.NativeLayout.Box((width-Math.min(520,width-32))/2,panelTop()+38,Math.max(0,Math.min(520,width-32)),Math.max(0,(panelBottom()-58)-(panelTop()+38))),14);UiActions.close(new dev.abros.anthub.core.NativeLayout.Box(width/2-100,panelBottom()-28,200,20),this::addRenderableWidget,this::onClose);if(!started){started=true;load();}}
  private void load(){if(busy)return;busy=true;sent=System.currentTimeMillis();request=UUID.randomUUID().toString();var j=new JsonObject();j.addProperty("action","playerAdministration");j.addProperty("target",Json.str(player,"uuid"));j.addProperty("cursor",cursor);j.addProperty("request",request);ServerMenuClient.request(j);status="Загрузка…";}
  void receive(JsonObject j){if(!request.equals(Json.opt(j,"request","")))return;busy=false;status="";
   if(paragraphs.isEmpty()){var permissions=j.getAsJsonObject("permissions");paragraphs.add("Текущие разрешения LuckPerms");if(!permissions.has("available"))paragraphs.add("Нет доступных данных API для этого игрока");else for(var entry:permissions.getAsJsonObject("capabilities").entrySet())paragraphs.add(entry.getKey()+": "+(entry.getValue().getAsBoolean()?"разрешено":"не разрешено"));paragraphs.add(j.get("online").getAsBoolean()?"Доступные команды сейчас: "+j.get("actions"):"Команды офлайн-игрока: неизвестно");paragraphs.add("Наследование групп здесь не отображается.");paragraphs.add("История модерации");}
@@ -23,7 +23,7 @@ final class PlayerAdministrationScreen extends ScrollScreen implements Community
  @Override public void receiveCommunity(JsonObject response){if(request.equals(Json.opt(response,"request",""))){busy=false;status=Json.opt(response,"text","Не удалось загрузить данные");}}
  @Override protected void onScrollEnd(){if(!cursor.isEmpty())load();}
  @Override public void tick(){if(!ServerMenuClient.admin())onClose();else if(busy&&System.currentTimeMillis()-sent>15000){busy=false;status="Нет ответа. Закройте и откройте карточку повторно.";}}
- @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-(Math.min(520,width-32)))/2,panelTop(),Math.min(520,width-32));int left=(width-Math.min(520,width-32))/2;for(int i=firstRow;i<Math.min(lines.size(),firstRow+visibleRows);i++)Ui.text(g,font,lines.get(i),left,panelTop()+38+(i-firstRow)*14,UiPalette.color(0xEEEEEE));Ui.status(g,font,status,left,panelBottom()-52,Math.min(520,width-32),panelBottom()-30);}
+ @Override public void render(GuiGraphics g,int x,int y,float d){UiDialog.render(parent,this,g,d,()->{super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-(Math.min(520,width-32)))/2,panelTop(),Math.min(520,width-32));int left=(width-Math.min(520,width-32))/2;for(int i=firstRow;i<Math.min(lines.size(),firstRow+visibleRows);i++)Ui.text(g,font,lines.get(i),left,panelTop()+38+(i-firstRow)*14,UiPalette.color(0xEEEEEE));Ui.status(g,font,status,left,panelBottom()-52,Math.min(520,width-32),panelBottom()-30);});}
  @Override public boolean isPauseScreen(){return false;}
  @Override public void onClose(){minecraft.setScreen(parent);}
 }

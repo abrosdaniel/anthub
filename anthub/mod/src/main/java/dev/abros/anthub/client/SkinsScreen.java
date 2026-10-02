@@ -26,12 +26,12 @@ final class SkinsScreen extends ScrollScreen {
  private JsonObject selectedEntry(){for(var e:entries())if(Json.str(e.getAsJsonObject(),"id").equals(selection))return e.getAsJsonObject();return null;}
  void updated(){if(uploadPending&&!SkinClient.busy&&!SkinClient.retryable){uploadPending=false;if(SkinClient.status.isEmpty()){draft=null;draftTexture=null;selectionReady=false;}}if(!selectionReady){selection=active();selectionReady=true;}if(!moving.isEmpty()&&!SkinClient.busy){if(!SkinClient.status.isEmpty()||SkinClient.retryable){moving="";moveTarget=-1;}else continueMove();}rebuildWidgets();}
  private void continueMove(){int index=-1;for(int n=0;n<entries().size();n++)if(Json.str(entries().get(n).getAsJsonObject(),"id").equals(moving))index=n;if(index<0||index==moveTarget){moving="";moveTarget=-1;return;}SkinClient.command(index>moveTarget?"moveUp":"moveDown",moving,false);}
- private Button button(String text,int x,int y,int w,Runnable action){return addRenderableWidget(Button.builder(Component.literal(text),b->action.run()).bounds(x,y,w,20).build());}
+ private Button button(String text,int x,int y,int w,Runnable action){return addRenderableWidget(UiActions.button(Component.literal(text),UiActions.Tone.NORMAL,"",b->action.run()).bounds(x,y,w,20).build());}
  private JsonArray entries(){return SkinClient.library.has("entries")?SkinClient.library.getAsJsonArray("entries"):new JsonArray();}
  private int stride(){return AccessibilityScreen.skinStride();}
- @Override protected void init(){left=Math.max(16,(width-600)/2);int total=width-2*left;listWidth=Math.max(110,total*2/5-12);right=left+listWidth+18;int bottom=height-90;
+ @Override protected void init(){left=Math.max(UiPage.body(width,height).x(),(width-600)/2);int total=width-2*left;listWidth=Math.max(110,total*2/5-12);right=left+listWidth+18;int bottom=height-90;
   if(!selectionReady&&SkinClient.library.has("profile")){selection=active();selectionReady=true;}
-  scrollArea(entries().size()+1,56,bottom,stride(),left+listWidth+2);
+  scrollArea(entries().size()+1,new dev.abros.anthub.core.NativeLayout.Box(left,56,Math.max(0,listWidth),Math.max(0,(bottom)-(56))),stride());
   if(draft==null){
    for(int row=firstRow;row<Math.min(entries().size()+1,firstRow+visibleRows);row++){
     var entry=row==0?null:entries().get(row-1).getAsJsonObject();String id=entry==null?"":Json.str(entry,"id");int y=56+(row-firstRow)*stride();
@@ -41,7 +41,7 @@ final class SkinsScreen extends ScrollScreen {
    add.setTooltip(Tooltip.create(Component.literal("PNG 64×64 или 64×32. После выбора можно проверить скин.")));
    add.active=!choosing&&!PICKER.get()&&SkinClient.available()&&!SkinClient.busy&&SkinClient.library.has("limit")&&entries().size()<SkinClient.library.get("limit").getAsInt();
   }else{
-   nameField=addRenderableWidget(new UiEditBox(font,left+6,72,listWidth-12,20,Component.literal("Название скина")));nameField.setMaxLength(40);nameField.setValue(draftName);nameField.setResponder(v->draftName=v);nameField.active=!SkinClient.busy;
+   nameField=addRenderableWidget(UiFields.text(font,left+6,72,listWidth-12,20,Component.literal("Название скина")));nameField.setMaxLength(40);nameField.setValue(draftName);nameField.setResponder(v->draftName=v);nameField.active=!SkinClient.busy;
    button(slim?"Тонкие руки":"Обычные руки",left+6,102,listWidth-12,()->{slim=!slim;rebuildWidgets();}).active=!SkinClient.busy;
    button("Отмена",left+6,132,listWidth-12,()->{draft=null;draftTexture=null;message="";rebuildWidgets();}).active=!SkinClient.busy;
   }
@@ -53,15 +53,15 @@ final class SkinsScreen extends ScrollScreen {
   });apply.active=!SkinClient.busy&&!choosing&&!uploadPending&&(draft!=null||!selection.equals(active()));
   if(draft==null&&selectedEntry()!=null){var menu=button("Действия ▾",right,48,Math.min(120,pw),this::actions);menu.active=!SkinClient.busy&&!choosing;}
   if(SkinClient.retryable)button("Повторить запрос",right,height-56,pw,SkinClient::retry);
-  button("Назад",Math.max(12,width/2-70),height-28,140,this::onClose);
+  UiPageFooter.workspace(width,height).end(UiActions.Command.BACK,this::addRenderableWidget,this::onClose);
   if(minecraft.level!=null&&minecraft.player!=null&&previewPlayer==null)previewPlayer=new RemotePlayer(minecraft.level,minecraft.player.getGameProfile()){@Override public PlayerSkin getSkin(){return previewSkin();}@Override public boolean isModelPartShown(net.minecraft.world.entity.player.PlayerModelPart part){return secondLayer;}};
  }
  private void actions(){var entry=selectedEntry();if(entry==null)return;String id=selection;var labels=new java.util.ArrayList<String>();var actions=new java.util.ArrayList<Runnable>();
   if(dev.abros.anthub.network.Protocol.supportedFeatures.contains("skin-names")){labels.add("Переименовать");actions.add(()->minecraft.setScreen(new NameScreen(this,id,Json.str(entry,"name"))));}
   labels.add(entry.get("slim").getAsBoolean()?"Сделать обычные руки":"Сделать тонкие руки");actions.add(()->SkinClient.command("model",id,!entry.get("slim").getAsBoolean()));
   if(dev.abros.anthub.network.Protocol.supportedFeatures.contains("skin-order")){int index=-1;for(int n=0;n<entries().size();n++)if(Json.str(entries().get(n).getAsJsonObject(),"id").equals(id))index=n;if(index>0){labels.add("Переместить выше");actions.add(()->SkinClient.command("moveUp",id,false));}if(index<entries().size()-1){labels.add("Переместить ниже");actions.add(()->SkinClient.command("moveDown",id,false));}}
-  labels.add("Удалить…");actions.add(()->minecraft.setScreen(new ConfirmScreen(ok->{minecraft.setScreen(this);if(ok){selection="";SkinClient.command("delete",id,false);}},Component.literal("Удалить скин?"),Component.literal(Json.str(entry,"name")))));
-  minecraft.setScreen(new ChoicePopup(this,"Действия",labels,n->actions.get(n).run()).anchorLabel("Действия ▾"));
+  labels.add("Удалить…");actions.add(()->minecraft.setScreen(new UiConfirmDialog(ok->{minecraft.setScreen(this);if(ok){selection="";SkinClient.command("delete",id,false);}},Component.literal("Удалить скин?"),Component.literal(Json.str(entry,"name"))).dangerous()));
+  minecraft.setScreen(new ChoicePopup(this,"Действия",labels,n->actions.get(n).run()).danger(labels.size()-1).anchorLabel("Действия ▾"));
  }
  private void chooseFile(){
   if(!PICKER.compareAndSet(false,true))return;
@@ -80,14 +80,14 @@ final class SkinsScreen extends ScrollScreen {
  private static final class NameScreen extends Screen {
   private final SkinsScreen parent;private final String id;private String value;private EditBox field;
   NameScreen(SkinsScreen parent,String id,String value){super(Component.literal("Название скина"));this.parent=parent;this.id=id;this.value=value;}
-  @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(300,width-32),height/2-54,height/2+44);}
- @Override protected void init(){int w=Math.min(300,width-32),x=(width-w)/2,y=height/2-20;field=addRenderableWidget(new UiEditBox(font,x,y,w,20,title));field.setMaxLength(40);field.setValue(value);var save=addRenderableWidget(Button.builder(Component.literal("Сохранить"),b->{minecraft.setScreen(parent);SkinClient.command("rename",id,false,value.strip());}).bounds(x,y+30,(w-4)/2,20).build());save.active=!value.isBlank();field.setResponder(v->{value=v;save.active=!v.isBlank();});addRenderableWidget(Button.builder(Component.literal("Отмена"),b->onClose()).bounds(x+(w+4)/2,y+30,(w-4)/2,20).build());setInitialFocus(field);}
-  @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-Math.min(300,width-32))/2,height/2-54,Math.min(300,width-32));}
+  @Override public void renderBackground(GuiGraphics g,int x,int y,float d){UiDialog.draw(g,width,Math.min(300,width-32),height/2-54,height/2+44);}
+ @Override protected void init(){int w=Math.min(300,width-32),x=(width-w)/2,y=height/2-20;field=addRenderableWidget(UiFields.text(font,x,y,w,20,title));field.setMaxLength(40);field.setValue(value);var save=addRenderableWidget(UiActions.button(Component.literal("Сохранить"),UiActions.Tone.PRIMARY,UiIcons.SAVE,b->{minecraft.setScreen(parent);SkinClient.command("rename",id,false,value.strip());}).bounds(x,y+30,(w-4)/2,20).build());save.active=!value.isBlank();field.setResponder(v->{value=v;save.active=!v.isBlank();});addRenderableWidget(UiActions.button(Component.literal("Отмена"),UiActions.Tone.NORMAL,"",b->onClose()).bounds(x+(w+4)/2,y+30,(w-4)/2,20).build());setInitialFocus(field);}
+  @Override public void render(GuiGraphics g,int x,int y,float d){UiDialog.render(parent,this,g,d,()->{super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-Math.min(300,width-32))/2,height/2-54,Math.min(300,width-32));});}
   @Override public void onClose(){minecraft.setScreen(parent);}
   @Override public boolean isPauseScreen(){return false;}
  }
  private PlayerSkin previewSkin(){if(draftTexture!=null)return new PlayerSkin(draftTexture,null,null,null,slim?PlayerSkin.Model.SLIM:PlayerSkin.Model.WIDE,false);return UiSkinCard.appearance(selectedEntry());}
- @Override public void renderBackground(GuiGraphics g,int mx,int my,float delta){super.renderBackground(g,mx,my,delta);UiKit.material(g,left-6,38,listWidth+13,height-102);UiKit.material(g,right-4,38,width-left-right+10,height-102);}
+ @Override public void renderBackground(GuiGraphics g,int mx,int my,float delta){super.renderBackground(g,mx,my,delta);UiPage.draw(g,width,height);UiKit.material(g,left-6,38,listWidth+13,height-102);UiKit.material(g,right-4,38,width-left-right+10,height-102);}
  @Override public void render(GuiGraphics g,int mx,int my,float delta){super.render(g,mx,my,delta);UiHeading.page(g,font,title,width);
   if(draft!=null)Ui.text(g,font,"Название",left+6,56,UiKit.text(),false);
   else{Ui.text(g,font,"Библиотека",left+6,42,UiKit.muted(),false);if(dev.abros.anthub.network.Protocol.supportedFeatures.contains("skin-order"))for(int row=Math.max(1,firstRow);row<Math.min(entries().size()+1,firstRow+visibleRows);row++){int yy=56+(row-firstRow)*stride();for(int n=0;n<3;n++){g.fill(left+listWidth-12,yy+10+n*4,left+listWidth-4,yy+11+n*4,UiKit.muted());}}}

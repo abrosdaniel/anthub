@@ -1,0 +1,17 @@
+package dev.abros.anthub.client;
+import dev.abros.anthub.core.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+@EventBusSubscriber(modid="anthub",value=Dist.CLIENT)
+public final class HudUiHarness {
+ private static int step=-1;private static long at;private static boolean previewStarted;
+ @SubscribeEvent public static void render(ScreenEvent.Render.Post event){if(System.getenv("ANTHUB_HUD_PREVIEW")!=null){var client=Minecraft.getInstance();if(!previewStarted&&client.screen instanceof TitleScreen){previewStarted=true;var title=client.screen;CommunityUiHarness.open("normal");ServerMenuClient.state.add("profile",Json.GSON.toJsonTree(java.util.Map.of("prefix","<#B7C4CB>Инженер","suffix","<#B7C4CB>Мастер механизмов")));ServerMenuClient.state.addProperty("sessionSeconds",4920);var settings=new HudSettingsScreen(title);client.setScreen(settings);client.setScreen(new HudInteractionScreen(true,settings));System.out.println("ANTHUB_HUD_PREVIEW_READY: demonstration data");}if(previewStarted&&client.screen instanceof HudInteractionScreen&&System.currentTimeMillis()>at){at=System.currentTimeMillis()+12000;AntHubHud.QUEUE.add(new HudNoticeQueue.Notice("","events","demo","reminder","Предпросмотр уведомления","Событие начнётся через пять минут.",HudNoticeQueue.Priority.ORDINARY),net.minecraft.Util.getMillis(),2);}return;}String output=System.getenv("ANTHUB_HUD_UI");if(output==null||step>216)return;var mc=Minecraft.getInstance();if(step<0){if(!(mc.screen instanceof TitleScreen))return;CommunityUiHarness.open("normal");ServerMenuClient.state.add("profile",Json.GSON.toJsonTree(java.util.Map.of("prefix","<#B7C4CB>Инженер","suffix","<#B7C4CB>Мастер механизмов")));ServerMenuClient.state.addProperty("sessionSeconds",4920);new java.io.File(output).mkdirs();step=0;at=System.currentTimeMillis()+500;}if(System.currentTimeMillis()<at)return;at=System.currentTimeMillis()+220;
+ try{if(step>0){UiGeometryHarness.verify(mc.screen);if(mc.screen instanceof HudInteractionScreen){if(HudRenderer.lastX<0||HudRenderer.lastY<0||HudRenderer.lastX+HudRenderer.lastW>mc.screen.width||HudRenderer.lastY+HudRenderer.lastH>mc.screen.height)throw new IllegalStateException("HUD outside viewport");}net.minecraft.client.Screenshot.grab(new java.io.File(output),String.format("hud-%03d.png",step),mc.getMainRenderTarget(),m->{});}
+ if(step==216){step++;System.out.println("ANTHUB_HUD_UI_OK: 216 states, all themes and three scales");mc.stop();return;}
+ int group=step/6;UiPalette.preview(group%12);if(step%6==0){mc.options.guiScale().set(1+group/12);mc.resizeDisplay();}if(step%6<5){var settings=new HudSettingsScreen(null);mc.setScreen(settings);settings.previewTab(step%6);}else{AntHubHud.QUEUE.clear();AntHubHud.QUEUE.add(new HudNoticeQueue.Notice("1","events","a","reminder","Событие начинается","Сбор у станции. Приготовьте инструменты.",HudNoticeQueue.Priority.ORDINARY),net.minecraft.Util.getMillis()-200,2);AntHubHud.QUEUE.add(new HudNoticeQueue.Notice("2","server","","server","Перезапуск сервера","Сервер сохранит мир через одну минуту.",HudNoticeQueue.Priority.URGENT),net.minecraft.Util.getMillis()-200,2);mc.setScreen(new HudInteractionScreen(true,null));}step++;
+ }catch(Throwable failure){System.out.println("ANTHUB_HUD_UI_FAILED step="+step);failure.printStackTrace();step=181;mc.stop();}}
+}

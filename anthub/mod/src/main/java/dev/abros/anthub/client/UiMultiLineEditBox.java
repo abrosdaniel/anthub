@@ -8,7 +8,7 @@ final class UiMultiLineEditBox extends MultiLineEditBox {
  private final Font font;private final Component placeholder;private int limit=-1;private long focusAt;
  UiMultiLineEditBox(Font font,int x,int y,int w,int h,Component placeholder,Component title){super(font,x,y,w,h,placeholder,title);this.font=font;this.placeholder=placeholder;}
  @Override public void setCharacterLimit(int value){super.setCharacterLimit(value);limit=value;}
- @Override protected void renderBackground(GuiGraphics g){UiKit.surface(g,getX(),getY(),width,height,UiPalette.inputSurface());g.renderOutline(getX(),getY(),width,height,isFocused()?UiKit.accent():UiPalette.color(0xFF61727F));}
+ @Override protected void renderBackground(GuiGraphics g){UiKit.surface(g,getX(),getY(),width,height,UiPalette.inputSurface());g.renderOutline(getX(),getY(),width,height,UiFields.outline(this));}
  @Override public void setFocused(boolean focused){super.setFocused(focused);if(focused)focusAt=net.minecraft.Util.getMillis();}
  @Override protected void renderContents(GuiGraphics g,int mx,int my,float delta){
   var field=((dev.abros.anthub.mixin.MultiLineFieldAccessor)(Object)this).anthub$textField();String value=field.value();int left=getX()+innerPadding(),y=getY()+innerPadding();
@@ -22,7 +22,7 @@ final class UiMultiLineEditBox extends MultiLineEditBox {
   }
  }
  @Override protected void renderDecorations(GuiGraphics g){
-  if(scrollbarVisible()){int h=Math.min(height,Math.max(32,height*height/Math.max(1,getInnerHeight()+4)));int y=getY()+(int)(scrollAmount()*(height-h)/Math.max(1,getMaxScrollAmount()));g.fill(getX()+width,getY(),getX()+width+8,getY()+height,UiPalette.scrollTrack());g.fill(getX()+width,y,getX()+width+8,y+h,UiPalette.scrollThumb());}
+  if(scrollbarVisible()){int h=Math.min(height,Math.max(32,height*height/Math.max(1,getInnerHeight()+4)));int y=getY()+(int)(scrollAmount()*(height-h)/Math.max(1,getMaxScrollAmount()));UiScrollbar.draw(g,new dev.abros.anthub.core.NativeLayout.Box(getX()+width,getY(),8,height),new dev.abros.anthub.core.NativeLayout.Box(getX()+width,y,8,h));}
   if(limit>=0){String text=getValue().length()+"/"+limit;Ui.text(g,font,text,getX()+width-font.width(text),getY()+height+4,UiKit.muted(),false);}
  }
 }

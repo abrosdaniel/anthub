@@ -107,6 +107,7 @@
   "anthub.server.invalidnumber": "Enter a whole number for duration.",
   "anthub.server.helptext": "F8 opens this menu (change it in Controls).\n/ah opens the menu by command.\n\nUse the button below to report a problem. Reports are sent only after preview and confirmation.",
   "anthub.server.admintext": "Choose an action, then enter its message and timing.\nDiagnostics show up to 30 clients; reports show 5 per page.",
+  "key.anthub.hudInteract": "Interact with AntHub HUD",
   "key.anthub.menu": "Open server menu",
   "key.categories.anthub": "AntHub",
   "anthub.server.minutes": "Minutes (0–1440)",
@@ -183,5 +184,7 @@
   "anthub.server.command.pardon": "Unban",
   "anthub.server.groups": "My communities",
   "anthub.pack": "Pack",
-  "key.anthub.quickSkins": "Quick skin selection"
+  "key.anthub.quickSkins": "Quick skin selection",
+  "anthub.close": "Close",
+  "anthub.backToList": "Back to list"
 }

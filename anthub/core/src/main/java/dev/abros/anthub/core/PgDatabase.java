@@ -67,13 +67,14 @@ public final class PgDatabase implements AutoCloseable {
 
     public <T> T transaction(Work<T> work) throws Exception {
         if (current.get() != null) return work.run();
+        long started=System.nanoTime();boolean failed=true;
         try (Connection connection = pool.getConnection()) {
             connection.setAutoCommit(false);
             current.set(connection);
-            try { T result = work.run(); connection.commit(); return result; }
+            try { T result = work.run(); connection.commit(); failed=false;return result; }
             catch (Exception | Error ex) { try { connection.rollback(); } catch (SQLException rollback) { ex.addSuppressed(rollback); } throw ex; }
             finally { current.remove(); }
-        }
+        }finally{PerformanceMetrics.record("database.transaction",System.nanoTime()-started,failed);}
     }
 
     /** Transaction-scoped lock also protects a key whose row does not exist yet. */

@@ -17,6 +17,7 @@ final class UiSkinCard extends Button {
  @Override protected void renderWidget(GuiGraphics g,int mx,int my,float d){
   int x=getX(),y=getY(),w=getWidth(),h=getHeight();float hover=UiTheme.hover(this);
   UiKit.plate(g,x,y,w,h,UiTheme.mix(UiKit.surface(),UiPalette.color(0xFF344657),hover));
+  UiKit.detail(g,x,y,w,h);
   int border=selected?UiPalette.color(0xFFE2BE75):UiPalette.color(0xFF526674);
   
   if(selected)g.fill(x,y+5,x+2,y+h-5,border);if(isFocused())g.renderOutline(x,y,w,h,border);

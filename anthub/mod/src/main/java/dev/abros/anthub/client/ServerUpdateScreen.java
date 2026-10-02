@@ -9,14 +9,14 @@ import net.minecraft.client.multiplayer.ServerData;
 
 /** The server can propose a repository; only the player's action starts a fetch/install review. */
 final class ServerUpdateScreen extends Screen {
- private int panelTop(){return DialogPanel.top(height,240);}
+ private int panelTop(){return UiDialog.top(height,240);}
  private int panelBottom(){return height-panelTop();}
- @Override public void renderBackground(GuiGraphics g,int x,int y,float d){super.renderBackground(g,x,y,d);DialogPanel.draw(g,width,Math.min(440,width-40),panelTop(),panelBottom());}
+ @Override public void renderBackground(GuiGraphics g,int x,int y,float d){UiDialog.draw(g,width,Math.min(440,width-40),panelTop(),panelBottom());}
     private final Screen parent;private final JsonObject offer;private final ServerData server;
     private String status="";private boolean busy;
     ServerUpdateScreen(Screen parent,JsonObject offer,ServerData server){super(Client.tr("server.update"));this.parent=parent;this.offer=offer;this.server=server;}
     @Override protected void init(){
-        addRenderableWidget(Button.builder(Client.tr("server.checkupdate"),b->{if(busy)return;busy=true;b.active=false;status=Client.tr("checking").getString();
+        addRenderableWidget(UiActions.button(Client.tr("server.checkupdate"),UiActions.Tone.NORMAL,"",b->{if(busy)return;busy=true;b.active=false;status=Client.tr("checking").getString();
             new RepositoryOperations(Client.hub,Client.IO).fetch(Json.str(offer,"repository")).whenCompleteAsync((release,error)->{
                 busy=false;if(minecraft.screen!=this)return;b.active=true;
                 if(error!=null){status=error.getCause()==null?error.getMessage():error.getCause().getMessage();return;}
@@ -28,10 +28,10 @@ final class ServerUpdateScreen extends Screen {
                 }catch(Exception ex){status=Errors.message(ex);}
             },minecraft);
         }).bounds(width/2-120,panelBottom()-54,240,20).build());
-        addRenderableWidget(Button.builder(Client.tr("back"),b->onClose()).bounds(width/2-100,panelBottom()-28,200,20).build());
+        UiActions.close(new dev.abros.anthub.core.NativeLayout.Box(width/2-100,panelBottom()-28,200,20),this::addRenderableWidget,this::onClose);
     }
-    @Override public void render(GuiGraphics g,int x,int y,float d){super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-Math.min(440,width-40))/2,panelTop(),Math.min(440,width-40));
+    @Override public void render(GuiGraphics g,int x,int y,float d){UiDialog.render(parent,this,g,d,()->{super.render(g,x,y,d);UiHeading.dialog(g,font,title,(width-Math.min(440,width-40))/2,panelTop(),Math.min(440,width-40));
         Ui.status(g,font,server.name+"\n"+Client.tr("server.required",Json.opt(offer,"requiredVersion","?")).getString()+"\n"+Json.opt(offer,"repository","")+"\n\n"+status,(width-Math.min(440,width-40))/2,panelTop()+55,Math.min(440,width-40),panelBottom()-65);
-    }
+    });}
     @Override public void onClose(){minecraft.setScreen(parent);}
 }

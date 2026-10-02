@@ -107,6 +107,7 @@
   "anthub.server.invalidnumber": "Укажите целое число для времени.",
   "anthub.server.helptext": "F8 — открыть меню (клавиша меняется в управлении).\n/ah — открыть меню командой.\n\nСообщите о проблеме через кнопку ниже. Отчёт передаётся только после просмотра и подтверждения.",
   "anthub.server.admintext": "Выберите действие. Сообщение и время задаются на следующем экране.\nДиагностика показывает до 30 клиентов, отчёты — по 5 на страницу.",
+  "key.anthub.hudInteract": "Взаимодействие с игровым виджетом",
   "key.anthub.menu": "Открыть меню сервера",
   "key.categories.anthub": "AntHub",
   "anthub.server.minutes": "Минуты (0–1440)",
@@ -183,5 +184,7 @@
   "anthub.server.command.pardon": "Разбанить",
   "anthub.server.groups": "Мои объединения",
   "anthub.pack": "Сборка",
-  "key.anthub.quickSkins": "Быстрая смена скина"
+  "key.anthub.quickSkins": "Быстрая смена скина",
+  "anthub.close": "Закрыть",
+  "anthub.backToList": "К списку"
 }

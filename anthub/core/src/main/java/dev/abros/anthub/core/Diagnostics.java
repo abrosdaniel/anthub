@@ -25,6 +25,7 @@ public final class Diagnostics {
    var lines=new String(bytes,StandardCharsets.UTF_8).lines().filter(line->line.toLowerCase(Locale.ROOT).contains("anthub")&&(line.contains("WARN")||line.contains("ERROR"))).toList();
    for(String line:lines.subList(Math.max(0,lines.size()-100),lines.size()))text.append(line).append('\n');
   }
+  text.append("\nAggregate performance (ms)\n");PerformanceMetrics.snapshot().forEach((name,sample)->text.append(name).append(": count=").append(sample.count()).append(" mean=").append(String.format(java.util.Locale.ROOT,"%.2f",sample.meanMillis())).append(" max=").append(sample.maxNanos()/1_000_000).append(" failures=").append(sample.failures()).append("\n"));
   return redact(text.toString(),hub.game);
  }
  public static Path save(Path game,String sanitized)throws IOException{Path dir=game.resolve("anthub/diagnostics");if(Files.isSymbolicLink(dir))throw new IOException("Unsafe diagnostics directory");Files.createDirectories(dir);Path file=Files.createTempFile(dir,"anthub-",".txt");Files.writeString(file,sanitized);return file;}
