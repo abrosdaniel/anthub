@@ -7,3 +7,9 @@ include 'bootstrap'
 ["core", "mod", "helper", "bootstrap"].each { name ->
     project(":" + name).projectDir = file("anthub/" + name)
 }
+
+// Separate terminal client migration release; legacy modules remain available.
+include "bridge", "bridge-helper", "bridge-bootstrap"
+["bridge", "bridge-helper", "bridge-bootstrap"].each { name ->
+    project(":" + name).projectDir = file("anthub/" + name)
+}

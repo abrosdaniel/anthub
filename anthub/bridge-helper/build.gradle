@@ -1,0 +1,14 @@
+version = rootProject.property('anthubBridgeVersion')
+dependencies { implementation 'com.google.code.gson:gson:2.10.1' }
+tasks.register('standaloneJar', Jar) {
+    archiveClassifier = 'standalone'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest { attributes 'Main-Class': 'dev.abros.anthub.bridge.MigrationHelper' }
+    from sourceSets.main.output
+    from { configurations.runtimeClasspath.collect { zipTree(it) } }
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'module-info.class'
+}
+tasks.named('test') {
+    dependsOn 'standaloneJar'
+    systemProperty 'bridge.helperJar', tasks.named('standaloneJar').get().archiveFile.get().asFile.absolutePath
+}

@@ -1,0 +1,35 @@
+plugins { id 'net.neoforged.moddev' version '2.0.147' }
+version = rootProject.property('anthubBridgeVersion')
+neoForge {
+    version = rootProject.property('neoVersion')
+    runs { client { client() }; server { server(); programArgument '--nogui' } }
+    if (!project.hasProperty("bridgePackaged")) { mods { anthub { sourceSet sourceSets.main; sourceSet project(':bridge-helper').sourceSets.main } } }
+}
+dependencies { implementation project(':bridge-helper') }
+tasks.named('processResources') {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
+    dependsOn ':bridge-helper:standaloneJar'
+    from(project(':bridge-helper').tasks.named('standaloneJar')) { into 'anthub'; rename { 'helper.jar' } }
+    from(rootProject.file('anthub/icon_256x256.png')) { rename { 'icon.png' } }
+}
+tasks.named('jar') {
+    from project(':bridge-helper').sourceSets.main.output
+    archiveFileName = 'bridge-game.jar'
+    destinationDirectory = layout.buildDirectory.dir('internal')
+}
+
+// Isolated real-client check: load the outer JAR, never the user's game folder.
+if (project.hasProperty('bridgePackaged')) {
+    neoForge.runs.configureEach { gameDirectory = file('run-packaged-' + name) }
+    tasks.register('installBridgeTest', Copy) {
+        dependsOn ':bridge-bootstrap:jar'
+        from(project(':bridge-bootstrap').tasks.named('jar'))
+        into file('run-packaged-client/mods')
+        doLast {
+            def options = file('run-packaged-client/options.txt')
+            if (!options.exists()) options.text = 'onboardAccessibility:false\nguiScale:3\n'
+        }
+    }
+    tasks.matching { it.name == 'prepareClientRun' }.configureEach { dependsOn 'installBridgeTest' }
+}

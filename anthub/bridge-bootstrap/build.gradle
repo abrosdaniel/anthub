@@ -1,0 +1,31 @@
+version = rootProject.property('anthubBridgeVersion')
+repositories { maven { url = 'https://libraries.minecraft.net' }; maven { url = 'https://maven.neoforged.net/releases' } }
+dependencies { compileOnly 'net.neoforged.fancymodloader:loader:4.0.44' }
+tasks.named('jar') {
+    dependsOn ':bridge:jar'
+    archiveFileName = "anthub-${project.version}-mc1.21.1-neoforge.jar"
+    destinationDirectory = rootProject.layout.projectDirectory.dir('anthub/bridge/build/libs')
+    from(project(':bridge').tasks.named('jar')) { into 'anthub'; rename { 'game.jar' } }
+    from(project(':bridge').layout.buildDirectory.dir('resources/main')) {
+        include 'META-INF/neoforge.mods.toml', 'icon.png'
+    }
+    from(rootProject.file('LICENSE'))
+    manifest { attributes 'Automatic-Module-Name': 'dev.abros.anthub.bridge.bootstrap' }
+}
+tasks.register('verifyBundle') {
+    dependsOn 'jar'
+    doLast {
+        new java.util.zip.ZipFile(tasks.named('jar').get().archiveFile.get().asFile).withCloseable { outer ->
+            assert outer.getEntry('anthub/game.jar') != null
+            def names = []
+            new java.util.zip.ZipInputStream(outer.getInputStream(outer.getEntry('anthub/game.jar'))).withCloseable { inner ->
+                for (def e = inner.nextEntry; e != null; e = inner.nextEntry) names.add(e.name)
+            }
+            assert names.contains('dev/abros/anthub/bridge/AntHubBridge.class')
+            assert names.contains('anthub/helper.jar')
+            assert names.contains('anthub/protocols.json')
+            assert !names.any { it.contains('mixin') || it.startsWith('dev/abros/anthub/server/') || it.startsWith('org/postgresql/') }
+        }
+    }
+}
+tasks.named('check') { dependsOn 'verifyBundle' }

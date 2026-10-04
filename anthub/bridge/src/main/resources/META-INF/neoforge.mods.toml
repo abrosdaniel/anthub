@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+issueTrackerURL="https://github.com/abrosdaniel/anthub/issues"
+[[mods]]
+modId="anthub"
+version="${version}"
+displayName="AntHub → Rivet"
+logoFile="icon.png"
+description="Client migration installer. Downloads verified Rivet and replaces AntHub after Minecraft exits. Dedicated servers require manual migration."
+[[dependencies.anthub]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.250,21.2)"
+side="BOTH"
+[[dependencies.anthub]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+side="BOTH"

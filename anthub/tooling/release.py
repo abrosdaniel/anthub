@@ -85,8 +85,8 @@ def validate_protocol_change(current, previous):
             raise ValueError("Network protocols changed within the same A. Increase the major version A before publishing.")
 
 
-def publish(root, artifact, output):
-    number = version(root)
+def publish(root, artifact, output, *, release_version=None, packager=package, release_notes=None):
+    number = release_version or version(root)
     tag = "v" + number
     repository = os.environ["GITHUB_REPOSITORY"]
     commit = os.environ["GITHUB_SHA"]
@@ -104,10 +104,10 @@ def publish(root, artifact, output):
             raise ValueError("Existing release tag belongs to another commit; increase anthubVersion")
     if existing and existing["target_commitish"] != commit:
         raise ValueError("Draft belongs to another commit; retry its original run or use a new version")
-    notes = root / "anthub/RELEASE_NOTES.md"
+    notes = release_notes or root / "anthub/RELEASE_NOTES.md"
     if not notes.is_file() or not notes.read_text(encoding="utf-8").strip():
         raise ValueError("Fill anthub/RELEASE_NOTES.md before publishing")
-    files = package(root, artifact, output)
+    files = packager(root, artifact, output)
     current = json.loads((output / "core.json").read_text())
     same_major = [r for page in pages for r in page if not r["draft"] and not r.get("prerelease", False)
                   and re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", r["tag_name"])

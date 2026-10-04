@@ -1,4 +1,4 @@
-name: Publish AntHub
+name: Publish AntHub migration installer
 on:
   workflow_call:
 permissions:
@@ -24,8 +24,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.run_id }}
-        run: gh run download "$RUN_ID" --name anthub-ubuntu-latest --dir tested
+        run: gh run download "$RUN_ID" --name anthub-bridge-ubuntu-latest --dir tested
       - name: Package and publish new version
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python anthub/tooling/release.py --artifact tested --publish
+        run: python anthub/tooling/bridge_release.py --artifact tested --publish
